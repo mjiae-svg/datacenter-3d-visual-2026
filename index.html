@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  부유식 데이터센터 스크롤 3D (v0.42, 2026-11-15) — 사진은 ./photos/*.jpg (없으면 칸이 숨겨짐) — 세 기사 통합판. 모델 ./models/*.glb (없는 모델은 코드 임시 모형) — 원고: 주末머니 FDC편
+  부유식 데이터센터 스크롤 3D (v0.43, 2026-11-16) — 사진은 ./photos/*.jpg (없으면 칸이 숨겨짐) — 세 기사 통합판. 모델 ./models/*.glb (없는 모델은 코드 임시 모형) — 원고: 주末머니 FDC편
   - 3D: Three.js r160 내장. 표지의 콘셉트 이미지와 실시간 3D를 함께 사용.
   - 건물·단지는 일반적인 요소를 조합한 가상 데이터센터다. 특정 기업 시설을 재현하지 않는다.
   - 글자·숫자·카메라는 전부 아래 CONFIG 한 곳에서 바꾼다. (주말머니 원고 확정 후 교체)
@@ -161,7 +161,10 @@ html.has-cover #lead-art{opacity:1}
 .cap .ph .two.stack{flex-direction:column;background:#fff}
 .cap.pcard .ph .two.stack img{width:100%;height:178px;object-fit:contain;background:#fff}
 @media(max-width:819px){.cap.pcard .ph .two.stack img{height:118px}}
+html.in-frame{scrollbar-width:none}
+html.in-frame::-webkit-scrollbar,html.in-frame body::-webkit-scrollbar{display:none}
 </style>
+<script>try{if(window.self!==window.top)document.documentElement.className+=" in-frame";}catch(e){document.documentElement.className+=" in-frame";}</script>
 </head>
 <body>
 <div id="bar"><u></u></div>
