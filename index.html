@@ -1,0 +1,1246 @@
+<!doctype html>
+<!--
+  부유식 데이터센터 스크롤 3D (v0.42, 2026-11-15) — 사진은 ./photos/*.jpg (없으면 칸이 숨겨짐) — 세 기사 통합판. 모델 ./models/*.glb (없는 모델은 코드 임시 모형) — 원고: 주末머니 FDC편
+  - 3D: Three.js r160 내장. 표지의 콘셉트 이미지와 실시간 3D를 함께 사용.
+  - 건물·단지는 일반적인 요소를 조합한 가상 데이터센터다. 특정 기업 시설을 재현하지 않는다.
+  - 글자·숫자·카메라는 전부 아래 CONFIG 한 곳에서 바꾼다. (주말머니 원고 확정 후 교체)
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>데이터센터를 둘러싼 세 가지 변수 | 아시아경제 비주얼뉴스</title>
+<meta name="theme-color" content="#061018">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:#070b10;color:#eef3f6;font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all;overflow-x:hidden}
+
+/* 고정 레이어 */
+#stage{position:fixed;left:0;top:0;width:100%;height:100vh;height:100lvh;z-index:0;background:radial-gradient(120% 90% at 50% 100%,#0f2430 0%,#061018 60%)}
+#stage canvas{display:block;width:100%;height:100%}
+#shade{position:fixed;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(7,11,16,.55) 0%,rgba(7,11,16,0) 22%,rgba(7,11,16,0) 70%,rgba(7,11,16,.6) 100%)}
+#labels{position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;opacity:0;transition:opacity .35s ease;will-change:transform}
+.lbl i{position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(94,242,200,.35),0 0 14px #5ef2c8}
+.lbl b{position:absolute;left:0;bottom:16px;width:1px;height:26px;background:#5ef2c8}
+.lbl span{position:absolute;left:0;bottom:44px;transform:translateX(-50%);white-space:nowrap;padding:6px 10px;border-radius:4px;background:rgba(8,14,20,.9);border:1px solid #5ef2c8;font-size:13px;font-weight:700;color:#fff}
+.lbl.cy i{box-shadow:0 0 0 4px rgba(111,183,255,.35),0 0 14px #6fb7ff}
+.lbl.cy b{background:#6fb7ff}.lbl.cy span{border-color:#6fb7ff}
+.lbl.rd i{box-shadow:0 0 0 4px rgba(255,122,89,.35),0 0 14px #ff7a59}
+.lbl.rd b{background:#ff7a59}.lbl.rd span{border-color:#ff7a59}
+
+/* 진행 표시 */
+#bar{position:fixed;left:0;top:0;z-index:6;height:3px;width:100%;background:rgba(255,255,255,.08)}
+#bar u{display:block;height:100%;width:0;background:linear-gradient(90deg,#5ef2c8,#6fb7ff)}
+#rail{position:fixed;z-index:5;right:18px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:14px;opacity:0;transition:opacity .4s}
+#rail.on{opacity:1}
+#rail a{display:flex;align-items:center;justify-content:flex-end;gap:8px;text-decoration:none;color:rgba(238,243,246,.5);font-size:11px;font-weight:700;cursor:pointer}
+#rail a em{font-style:normal;opacity:0;transition:opacity .25s}
+#rail a:before{content:"";order:2;width:8px;height:8px;border-radius:50%;border:1.5px solid rgba(238,243,246,.55)}
+#rail a.on{color:#fff}#rail a.on em{opacity:1}
+#rail a.on:before{background:#5ef2c8;border-color:#5ef2c8;box-shadow:0 0 10px #5ef2c8}
+@media(max-width:819px){#rail{display:none}}
+
+/* 스크롤 본문 */
+#story{position:relative;z-index:4}
+.step{position:relative;height:calc(var(--h,160) * 1vh);display:flex;align-items:center;padding:0 clamp(16px,6vw,96px)}
+.step.r{justify-content:flex-end}
+.step.c{justify-content:center;text-align:center}
+.cap{max-width:440px;padding:22px 24px 24px;background:rgba(9,15,21,.86);border-left:3px solid var(--ac,#5ef2c8);border-radius:2px;box-shadow:0 16px 50px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cap .eb{display:block;margin-bottom:10px;font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--ac,#5ef2c8)}
+.cap h2{margin:0 0 12px;font-size:clamp(24px,2.6vw,34px);font-weight:900;line-height:1.25;letter-spacing:-.03em}
+.cap p{margin:0;font-size:clamp(16px,1.3vw,18px);line-height:1.75;letter-spacing:-.01em;color:#dbe4ea}
+.cap p+p{margin-top:14px}
+.cap p b{font-weight:700;color:#fff;background:linear-gradient(transparent 60%,rgba(255,122,89,.5) 0)}
+.cap .tmp{margin-top:14px;font-size:12px;color:#8fa1ad}
+.cap ol{margin:14px 0 0;padding:0;list-style:none;text-align:left}
+.cap ol li{display:flex;gap:12px;align-items:baseline;padding:12px 0;border-top:1px solid rgba(255,255,255,.12);font-size:16px;line-height:1.6;color:#dbe4ea}
+.cap ol li b{flex:none;color:#5ef2c8;font-weight:900;font-size:16px;min-width:4.4em}
+.step.hero .cap{max-width:720px;background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0}
+.step.hero h1{margin:0 0 18px;font-size:clamp(38px,6.4vw,84px);font-weight:900;line-height:1.12;letter-spacing:-.045em;text-shadow:0 4px 30px rgba(0,0,0,.7)}
+.step.hero p{font-size:clamp(17px,1.6vw,21px);color:#eef3f6;text-shadow:0 2px 14px rgba(0,0,0,.8)}
+.chip{display:inline-flex;gap:10px;align-items:baseline;margin-top:22px;padding:8px 14px;border:1px solid rgba(255,255,255,.28);border-radius:99px;background:rgba(8,14,20,.6);font-size:13px;color:#c9d4db}
+.chip b{font-size:17px;color:#fff}.chip i{font-style:normal;font-weight:700}
+.chip i.up{color:#ff7a59}.chip i.dn{color:#5aa8ff}
+.hint{margin-top:34px;font-size:12px;letter-spacing:.2em;color:#9fb0bb;animation:bob 1.8s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(6px)}}
+.idx{display:block;width:100%;height:auto;margin-top:16px}
+.credit{font-size:12px;line-height:1.7;color:#8fa1ad;margin-top:18px;text-align:left}
+#nogl{display:none;position:fixed;z-index:3;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 12px;font-size:12px;color:#c9d4db;background:rgba(8,14,20,.85);border:1px solid rgba(255,255,255,.2);border-radius:4px}
+.no-webgl #nogl{display:block}
+@media(max-width:819px){
+  .step,.step.r{justify-content:center}
+  .cap{max-width:none;width:100%;padding:18px 18px 20px;margin-top:48vh}
+  .step.hero .cap,.step.c .cap{margin-top:0}
+  .lbl span{font-size:12px;padding:5px 8px}
+}
+@media(prefers-reduced-motion:reduce){.hint{animation:none}}
+
+.bars{margin-top:16px}
+.bars .bl{display:block;margin:14px 0 8px;font-size:13px;font-weight:700;color:#9fb0bb}
+.bars .br{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:14px}
+.bars .br em{flex:none;width:3.4em;font-style:normal;color:#dbe4ea}
+.bars .br .tr{flex:1;height:14px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
+.bars .br .tr i{display:block;height:100%;background:#6b7c88}
+.bars .br.hi .tr i{background:#5ef2c8}
+.bars .br b{flex:none;min-width:6.6em;text-align:right;font-weight:700;color:#fff}
+.bars .br.hi b{color:#5ef2c8}
+.chk{display:inline-block;margin-top:12px;padding:3px 8px;font-size:12px;font-weight:700;color:#07100d;background:#ffd166;border-radius:3px}
+.step.fin{height:auto;min-height:calc(var(--h,160) * 1vh);flex-direction:column;justify-content:center;gap:34px;padding-top:30vh;padding-bottom:16vh}
+.relwrap{width:100%;max-width:1120px;pointer-events:auto;text-align:left}
+.relh{display:block;margin-bottom:14px;font-size:14px;font-weight:700;letter-spacing:.14em;color:#5ef2c8;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+.relgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.rcard{display:flex;flex-direction:column;background:rgba(9,15,21,.92);border-radius:4px;overflow:hidden;text-decoration:none;color:#eef3f6;box-shadow:0 16px 50px rgba(0,0,0,.45);transition:transform .2s}
+.rcard:hover{transform:translateY(-4px)}
+.rcard img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#fff}
+.rtx{display:flex;flex-direction:column;flex:1;padding:14px 16px 18px}
+.rtx em{font-style:normal;font-size:12px;font-weight:700;letter-spacing:.1em;color:#5ef2c8;margin-bottom:6px}
+.rtx strong{font-size:17px;line-height:1.45;font-weight:700;letter-spacing:-.02em;margin-bottom:16px}
+.rbtn{margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:999px;background:#5ef2c8;color:#08131a;font-size:13px;font-weight:700}
+@media(max-width:819px){
+  .relgrid{grid-template-columns:1fr;gap:10px}
+  .rcard{flex-direction:row}
+  .rcard img{width:112px;flex:none;aspect-ratio:auto;height:auto;min-height:104px}
+  .rtx{padding:12px 14px}.rtx strong{font-size:15px;margin-bottom:10px}
+  .rbtn{padding:0;background:none;color:#5ef2c8;font-size:12px}
+}
+.bsrc{display:block;margin-top:10px;font-size:12px;color:#93a3ae}
+.cap.pcard .ph .two.three img{height:150px}
+@media(max-width:819px){.cap.pcard .ph .two.three{flex-direction:column}.cap.pcard .ph .two.three img{width:100%;height:124px}}
+.rel{margin-top:20px;text-align:left;border-top:1px solid rgba(255,255,255,.14);padding-top:14px}
+.rel span{display:block;margin-bottom:8px;font-size:12px;font-weight:700;letter-spacing:.1em;color:#5ef2c8}
+.rel a{display:block;padding:7px 0;font-size:15px;line-height:1.5;color:#eef3f6;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.08)}
+.rel a:hover{color:#5ef2c8}
+@media(max-width:819px){.cap p{font-size:15.5px;line-height:1.7}.cap h2{font-size:22px}.cap ol li{font-size:15px;padding:9px 0}}
+.ch-art{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;background:center/cover no-repeat;will-change:opacity}
+.ch-art:after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(4,12,19,.62),rgba(4,12,19,.3) 60%,rgba(4,12,19,.5))}
+.ch-art span{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:1;padding:5px 8px;background:rgba(4,12,19,.75);color:#e1eaf0;font-size:11px}
+#lead-art{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;background:68% center/cover no-repeat}
+#lead-art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,12,19,.83),rgba(4,12,19,.34) 52%,transparent 85%),linear-gradient(0deg,rgba(4,12,19,.55),transparent 45%)}
+html.has-cover #lead-art{opacity:1}
+#lead-credit{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:1;padding:5px 8px;background:rgba(4,12,19,.75);color:#e1eaf0;font-size:11px}
+.step.hero{justify-content:flex-start;text-align:left}
+.step.hero p b{background:none;color:#7ff0d6;font-weight:800;white-space:nowrap}
+@media(max-width:819px){br.pc{display:none}}
+.step.hero .cap{max-width:570px}
+.step.hero .eb{letter-spacing:.08em;color:#a3ebe2}
+.cap{border-radius:6px;background:rgba(9,15,21,.9)}
+@media(max-width:819px){#lead-art{background-position:72% center}#lead-art:after{background:linear-gradient(180deg,rgba(4,12,19,.76),rgba(4,12,19,.2) 62%,rgba(4,12,19,.52))}.step.hero{align-items:flex-start;padding-top:20vh}.step.hero .cap{max-width:380px}}
+.step.chap .cap{max-width:860px;width:100%;background:radial-gradient(closest-side,rgba(4,12,19,.82),rgba(4,12,19,.5) 60%,rgba(4,12,19,0));border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:70px 30px;margin-top:0;text-align:center}
+.step.chap .cn{display:inline-block;margin-bottom:16px;padding:6px 16px;border:1px solid var(--ac,#5ef2c8);border-radius:99px;font-size:14px;font-weight:700;letter-spacing:.18em;color:var(--ac,#5ef2c8);background:rgba(6,16,24,.55)}
+.step.chap h2{font-size:clamp(34px,5.4vw,68px);letter-spacing:-.045em;text-shadow:0 4px 30px rgba(0,0,0,.75)}
+.cap .aft{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.14);text-align:left}
+.cap.hasph{max-width:500px}
+.cap .ph{margin:-22px -24px 18px;overflow:hidden;border-radius:6px 6px 0 0}
+.cap .ph img{display:block;width:100%;height:230px;object-fit:cover}
+.cap .ph figcaption{padding:8px 24px 0;font-size:12.5px;line-height:1.5;color:#aebcc6}
+.cap .ph figcaption em{display:block;font-style:normal;color:#7f909c}
+.cap .ph figcaption a{color:#9fb3c2;text-decoration:underline}
+@media(max-width:819px){.cap.hasph{margin-top:30vh}.cap .ph{margin:-18px -18px 12px}.cap .ph img{height:112px}.cap .ph figcaption{padding:6px 18px 0;font-size:11.5px}}
+.cap .ph .two{display:flex;gap:2px}.cap .ph .two img{width:50%}.cap .ph .two.three img{width:33.34%}
+/* 사진이 있는 구간: 글 카드가 먼저 지나가고, 더 내리면 사진 카드가 따로 나온다 */
+.step.ph2{flex-direction:column;justify-content:center;gap:58vh;height:calc((var(--h,160) + 125) * 1vh)}
+.step.solo>.cap:not(.pcard){display:none}.step.ph2.solo{height:calc(var(--h,160) * 1vh)}
+.step.ph2.l{align-items:flex-start}.step.ph2.r{align-items:flex-end}
+.cap.pcard{max-width:560px;width:100%;padding:0;border-left:0;border-radius:6px;overflow:hidden}
+.cap.pcard .ph{margin:0;border-radius:0}
+.cap.pcard .ph img{height:350px}
+.cap.pcard .ph figcaption{padding:12px 18px 15px;font-size:15px;line-height:1.55;color:#e3eaef}
+.cap.pcard .ph figcaption em{margin-top:4px;font-size:12px;color:#8496a2}
+@media(max-width:819px){
+  .step.ph2,.step.ph2.l,.step.ph2.r{align-items:center;gap:46vh}
+  .cap.pcard{margin-top:0}
+  .cap.pcard .ph{margin:0}
+  .cap.pcard .ph img{height:230px}
+  .cap.pcard .ph figcaption{padding:10px 14px 13px;font-size:14px}
+}
+.cap .ph .two.stack{flex-direction:column;background:#fff}
+.cap.pcard .ph .two.stack img{width:100%;height:178px;object-fit:contain;background:#fff}
+@media(max-width:819px){.cap.pcard .ph .two.stack img{height:118px}}
+</style>
+</head>
+<body>
+<div id="bar"><u></u></div>
+<div id="stage"></div>
+<div id="lead-art" aria-hidden="true"><span id="lead-credit">AI 생성 콘셉트 이미지</span></div>
+<div id="shade"></div>
+<div id="labels"></div>
+<nav id="rail" aria-label="구간"></nav>
+<main id="story"></main>
+<div id="nogl">3D를 표시할 수 없는 환경입니다. 본문은 그대로 읽을 수 있습니다.</div>
+
+<script src="./three-bundle.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* =====================================================================
+   CONFIG — 여기만 고치면 된다
+   - market : 첫 화면 시세 칩 (없으면 null)
+   - bars   : 막대 비교 [{label,rows:[[이름,값,표기,강조]]}], check=노란 확인 딱지
+   - related: 맨 끝 관련 기사 [[제목,URL]] (자사 기사만)
+   - steps  : 구간. h=스크롤 길이(vh), side=l/r/c, ac=강조색,
+              cam=[{p:[카메라 위치], t:[바라보는 곳]}] (여러 개면 구간 안에서 순서대로 이동)
+              labels=[{at:[x,y,z], text, c:''|'cy'|'rd', k:몇 번째 cam에서만 보일지(생략 가능)}]
+   ===================================================================== */
+var CONFIG={
+  market:null,
+  steps:[
+    {id:"hero",nav:"처음",h:115,side:"c",hero:true,
+     eb:"주末머니 · 비주얼뉴스",
+     title:"데이터센터가 막히자<br>벌어진 세 가지",
+     body:["미국 중간선거가 끝난 뒤 데이터센터 짓기가 까다로워졌어요. 그 틈에서 시장이 찾아낸 길 세 갈래를 따라가 봤습니다."],
+     cam:[{p:[-92,62,64],t:[15,0,-15]}]},
+
+    /* ---------- 발단 ---------- */
+    {id:"bill",nav:"발단",h:180,side:"l",ac:"#ff7a59",
+     eb:"발단",
+     title:"챗봇은 반갑지만, 전기료는 다른 얘기",
+     body:["챗봇의 똑똑한 답변은 반갑습니다. 그런데 그 뒤에 선 거대한 데이터센터가 우리 집 전기료를 올린다면 얘기가 달라집니다.",
+           "전기를 잔뜩 쓰는 시설이 들어오는데 왜 주민까지 비용을 나눠 내야 하느냐. 미국 중간선거에서 불거진 데이터센터 반대 여론은 이 물음에서 나왔습니다."],
+     labels:[{at:[-160,9,45],text:"주택가"},{at:[-30,16,0],text:"데이터센터",c:"cy"}],
+     cam:[{p:[-214,10,92],t:[-120,9,18]}]},
+
+    {id:"issue",h:180,side:"r",ac:"#ff7a59",
+     eb:"쟁점",
+     title:"따질 것은 전기와 물입니다",
+     body:["선거는 민주당의 압승, 이른바 '블루웨이브'로 끝났습니다. 한국투자증권 김건우 연구원은 데이터센터 건설이 어려워질 것으로 봤습니다.",
+           "규제를 다시 짜면서 다뤄질 문제로는 두 가지가 꼽힙니다. 지역의 물을 얼마나 쓰게 할지, 오른 전기요금은 누가 책임질지입니다."],
+     labels:[{at:[-56,9,0],text:"전기 · 변전 설비"},{at:[-12,24,5],text:"물 · 냉각 설비",c:"cy"},{at:[-42,8,27],text:"물탱크",c:"cy"}],
+     cam:[{p:[-108,34,58],t:[-6,4,0]}]},
+
+    {id:"market",h:180,side:"l",ac:"#ff7a59",
+     eb:"시장 반응",
+     title:"공사가 꼬이자 주가가 먼저 빠졌습니다",
+     body:["데이터센터가 늦어지면 그 안에 들어갈 반도체 주문도 밀립니다. 선거 직후 코스피는 하루에 5% 넘게 떨어졌고, 이튿날에는 장중 5000선을 내줬습니다.",
+           "그 뒤 증권가 보고서는 세 방향으로 갈렸습니다. 전기를 직접 만드는 쪽, 반도체를 다시 따져보는 쪽, 아예 땅을 떠나는 쪽입니다."],
+     labels:[{at:[82,13,0],text:"멈춘 공사",c:"rd"}],
+     cam:[{p:[48,30,48],t:[80,6,0]}]},
+
+    /* ---------- 변수 1 ---------- */
+    {id:"c1",nav:"변수 1",h:130,art:"./photos/ch-fuelcell.jpg",artPos:"30% center",side:"c",chapter:"변수 1",ac:"#5ef2c8",
+     title:"전기를 직접 만든다",
+     cam:[{p:[-96,62,-176],t:[0,0,-58]}]},
+
+    {id:"ms",h:200,side:"r",ac:"#5ef2c8",
+     eb:"",title:"",body:[],
+     labels:[{at:[-6,15,-112],text:"전용 가스발전소"},{at:[-58,6,-112],text:"가스 배관",c:"cy"},{at:[0,14,-54],text:"데이터센터",c:"cy"}],
+     cam:[{p:[-62,24,-162],t:[-4,8,-96]}]},
+
+    {id:"google",h:200,side:"l",ac:"#5ef2c8",
+     eb:"",title:"",body:[],
+     diagram:"demand",
+     labels:[{at:[-100,23,-14],text:"송전선"},{at:[-56,7,0],text:"변전 설비"}],
+     cam:[{p:[-122,20,46],t:[-62,9,-22]}]},
+
+    {id:"sofc",h:200,side:"l",ac:"#5ef2c8",
+     eb:"연료전지",
+     title:"냉각탑이 없는 발전기",
+     body:["데이터센터 마당에 놓고 그 자리에서 전기를 만드는 설비가 고체산화물연료전지(SOFC)입니다. 연료를 태우는 대신 전기화학 반응으로 전기를 만듭니다. 미국 블룸에너지 제품입니다.",
+           "김 연구원은 이 설비가 기존 발전소와 달리 냉각탑이 필요 없고, 물은 연료를 바꾸는 과정에서만 조금 쓴다고 설명했습니다. 광역 전력망을 거치지 않으니 지역 전기요금에도 영향을 주지 않는다는 겁니다.",
+           "물과 전기료, 선거에서 불거진 두 쟁점을 비켜 가는 셈입니다."],
+     labels:[{at:[-14,5,42],text:"연료전지 설비"}],
+     cam:[{p:[-31,6.5,55],t:[-13,2,42]}]},
+
+    {id:"dec",h:170,side:"r",ac:"#5ef2c8",
+     eb:"다음 일정",
+     title:"12월 10일을 봐야 합니다",
+     body:["텍사스 전력망 운영기관(ERCOT)과 수자원개발위원회(TWDB)는 12월 10일까지 데이터센터 인허가 감사 결과와 최종 보고서를 내놓습니다.",
+           "규제의 윤곽이 처음 드러나는 자리입니다."],
+     cam:[{p:[-62,30,74],t:[0,6,12]}]},
+
+    /* ---------- 변수 2 ---------- */
+    {id:"c2",nav:"변수 2",h:130,art:"./photos/ch-chip.jpg",artPos:"62% center",side:"c",chapter:"변수 2",ac:"#6fb7ff",
+     title:"그래서 한국 반도체는",
+     cam:[{p:[14,40,74],t:[0,4,0]}]},
+
+    {id:"delay",h:190,side:"l",ac:"#6fb7ff",
+     eb:"규모",
+     title:"늦어질 뿐 사라지진 않는다",
+     body:["미래에셋증권은 규제 영향을 받을 수 있는 데이터센터를 최대 13GW로 추산했습니다. 2035년까지 늘어날 것으로 보는 150GW의 9%쯤입니다.",
+           "보고서는 AI 투자가 사라지기보다 집행 시점이 밀릴 가능성에 무게를 뒀습니다. 한국·일본처럼 미국 밖에서 데이터센터 투자가 빨라질 가능성도 제시했습니다."],
+     cam:[{p:[-30,24,74],t:[2,5,2]}]},
+
+    {id:"calc",h:120,side:"r",ac:"#6fb7ff",
+     eb:"",title:"",body:[],
+     diagram:"capacity",
+     cam:[{p:[30,15,56],t:[2,6,2]}]},
+
+    {id:"korea",h:180,side:"l",ac:"#6fb7ff",
+     eb:"",title:"",body:[],
+     cam:[{p:[58,30,62],t:[4,5,-6]}]},
+
+    {id:"inside",h:270,side:"r",ac:"#6fb7ff",
+     eb:"빅테크의 사정",
+     title:"마냥 미룰 수도 없습니다",
+     body:["설비투자를 조금 늦추면 빅테크는 현금 사정이 나아지고 빚을 낼 부담도 줄어듭니다.",
+           "하지만 이미 받아둔 클라우드 주문이 쌓여 있고 매출도 빠르게 늘고 있습니다. 계속 미루기는 어렵다는 게 보고서의 판단입니다."],
+     labels:[{at:[0,5.2,18.4],text:"출입구",k:0},{at:[-2.4,2.9,-4],text:"서버 랙",c:"cy",k:1}],
+     cam:[{p:[0,5,40],t:[0,3,0]},{p:[0,2.2,10.5],t:[0,1.7,-10]}]},
+
+    {id:"hbm",h:190,side:"l",ac:"#6fb7ff",
+     eb:"삼전닉스",
+     title:"HBM은 계약으로 묶여 있습니다",
+     body:["한국 반도체주에 미치는 영향은 제품별로 나눠 봐야 한다는 게 미래에셋증권의 설명입니다.",
+           "권영배·김영건 연구원은 \"장기계약(LTA)으로 수요가 묶인 고대역폭메모리(HBM)는 비교적 안정적일 것\"이라고 짚었습니다."],
+     labels:[{node:"HBM",at:[0,2.0,3.0],text:"HBM"}],
+     cam:[{p:[-0.5,3.0,5.5],t:[0,1.75,3.0]}]},
+
+    {id:"dram",h:190,side:"r",ac:"#6fb7ff",
+     eb:"범용 메모리",
+     title:"D램과 SSD는 더 민감하지만",
+     body:["CPU와 함께 쓰이는 범용 D램과 SSD는 건설 지연에 더 민감할 수 있습니다.",
+           "두 연구원은 \"HBM 전환으로 범용 D램 공급이 더 빠듯해지는 점을 고려하면 우려 요인은 아니다\"라고 봤습니다."],
+     labels:[{node:"DRAM",at:[0.3,1.9,3.2],text:"범용 D램",c:"cy"},{node:"SSD",at:[0,1.4,3.9],text:"SSD",c:"cy"}],
+     cam:[{p:[0.9,2.9,5.3],t:[0.05,1.7,3.0]}]},
+
+    /* ---------- 변수 3 ---------- */
+    {id:"c3",nav:"변수 3",h:130,art:"./photos/ch-fdc.jpg",artPos:"70% center",side:"c",chapter:"변수 3",ac:"#5ef2c8",
+     title:"아예 바다로",
+     cam:[{p:[8,34,44],t:[8,6,112]}]},
+
+    {id:"sea",h:200,side:"l",ac:"#5ef2c8",
+     eb:"부유식 데이터센터",
+     title:"배처럼 만들어 물에 띄웁니다",
+     body:["땅에서 허가받기 어렵다면 물 위는 어떨까. 한국투자증권 강경태 연구원은 선거 뒤 떠오른 대안으로 부유식 데이터센터(FDC)를 꼽았습니다.",
+           "서버와 전력·냉각 설비를 떠 있는 구조물에 실은 시설입니다. 조선소에서 만들어 끌고 와 물가에 묶어 둡니다."],
+     labels:[{at:[7,14,104],text:"부유식 데이터센터"}],
+     cam:[{p:[-86,30,150],t:[4,5,104]}]},
+
+    {id:"fdc",h:190,side:"r",ac:"#5ef2c8",
+     eb:"첫 계약",
+     title:"50㎿급 2기가 본계약을 앞뒀습니다",
+     body:["삼성중공업은 미국 데이터센터 개발사 무스테리안과 50㎿급 FDC 2기를 설계부터 시공까지 맡는 본계약을 올해 4분기 안에 맺을 것으로 보입니다.",
+           "강 연구원은 \"관련 인허가 요건들이 실질적으로 해소됐음을 의미한다\"며 계약이 성사되면 세계 FDC 시장의 초석이 될 것으로 내다봤습니다."],
+     labels:[{at:[-30,13.5,104],text:"1호기"},{at:[44,13.5,104],text:"2호기"}],
+     cam:[{p:[23,51,218],t:[36,0,99],mobile:[8,65,288],mobileTarget:[8,4,104]}]},
+
+    {id:"rule",h:190,side:"l",ac:"#6fb7ff",
+     eb:"왜 바다인가",
+     title:"넘어야 할 규제의 성격이 다릅니다",
+     body:["FDC도 따로 규제를 통과해야 합니다. 다만 강 연구원은 이것이 유권자인 주민과 얽힌 문제와는 다르고, 육상보다 풀기 쉽다고 분석했습니다.",
+           "개발사는 마실 물을 쓰지 않는 냉각 방식을 내세웁니다. 설계에는 자체 발전 설비도 들어갑니다."],
+     labels:[],
+     cam:[{p:[-84,17,80],t:[-36,6,104]}]},
+
+    {id:"how",h:210,side:"l",ac:"#6fb7ff",
+     eb:"",title:"",body:[],
+     labels:[{at:[100,37,58],text:"기존 발전소"},{at:[76,9,82],text:"전기"},{at:[44,12,118],text:"냉각 배관 · 증발 없음",c:"cy"}],
+     cam:[{p:[26,27,162],t:[82,5,82]}]},
+
+    {id:"cost",h:190,side:"r",ac:"#5ef2c8",
+     eb:"경제성",
+     title:"짓는 돈도 굴리는 돈도 덜 든다는 계산",
+     body:["강 연구원은 FDC가 사업비와 운영비 양쪽에서 육상 데이터센터보다 경제성이 낫다고 봤습니다."],
+     bars:[{label:"총 개발비 (100㎿ 기준)",rows:[["육상",17.11,"17억1100만달러"],["부유식",9.35,"9억3500만달러",1]]},
+           {label:"연간 운영비",rows:[["육상",34,"3400만달러"],["부유식",17,"1700만달러",1]]}],
+     barsrc:"100㎿ 규모 기준 추산 · 자료: 한국투자증권",
+     cam:[{p:[96,22,136],t:[44,6,104]}]},
+
+    {id:"yard",h:190,side:"l",ac:"#ff7a59",
+     eb:"누가 만드나",
+     title:"2010년의 드릴십처럼",
+     body:["고유가로 심해 유전 개발이 붐을 이룬 2010년, 한국 조선사들은 드릴십 건조 시장을 독식했습니다.",
+           "강 연구원은 FDC 시장에서도 삼성중공업·한화오션·HD현대중공업이 핵심 공급자로 떠오를 잠재력이 있다고 평가했습니다."],
+     labels:[{at:[200,50,40],text:"골리앗 크레인",c:"rd"}],
+     cam:[{p:[128,44,150],t:[204,12,48]}]},
+
+    {id:"yard2",h:190,side:"r",ac:"#ff7a59",
+     eb:"조선 3사",
+     title:"",body:[],
+     labels:[{at:[186,9,44],text:"건조 중인 선체"}],
+     cam:[{p:[176,26,122],t:[202,9,44]}]},
+
+    {id:"end",nav:"정리",h:170,side:"c",ac:"#5ef2c8",
+     eb:"정리",
+     title:"한 번의 선거, 세 갈래 길",
+     list:[["전기","직접 만들거나, 많이 쓰는 시간을 피한다"],
+           ["반도체","취소보다 지연에 무게, HBM은 장기계약으로 묶여 있다"],
+           ["바다","육상의 대안으로 부유식 데이터센터가 떠오른다"]],
+     after:"세 보고서는 한 가지 전제를 공유합니다. 데이터센터 투자는 길을 바꿔서라도 이어진다는 것입니다.",
+     related:[["변수 1","美 블루웨이브 덕분에 뒤에서 웃는 주식이 있다?","https://view.asiae.co.kr/article/2026110515494360956","./photos/ch-fuelcell.jpg","30% 60%"],
+              ["변수 2","美데이터센터 규제에도 '삼전닉스'는 끄떡없다고?","https://view.asiae.co.kr/article/2026110516252508375","./photos/ch-chip.jpg","60% 50%"],
+              ["변수 2","韓 데이터센터 증설 가능성↑…\"통신3사 주목\"","https://www.asiae.co.kr/article/2026110516521932516","./photos/ch-telecom.jpg","62% 50%"],
+              ["변수 3","데이터센터가 바다에 둥둥…지금 ○○○ 사야할 때","https://view.asiae.co.kr/article/2026111215230359867","./photos/ch-fdc.jpg","72% 60%"]],
+     credit:"자료: 미래에셋증권, 한국투자증권, 셰브론, 구글, 미국선급(ABS), 무스테리안<br>3D 공간은 일반적 요소를 조합한 가상 시설이며 특정 기업의 설계를 재현하지 않습니다. 표지와 변수별 이미지, 관련 기사 이미지는 AI 생성 콘셉트 이미지이며, 3D 모델도 AI로 생성했습니다.",
+     cam:[{p:[40,150,270],t:[70,0,66]}]}
+  ]
+};
+
+/* =====================================================================
+   COPY — 글만 고칠 때는 여기만 본다 (구간 id별 제목·본문). CONFIG의 글을 덮어쓴다.
+   ===================================================================== */
+var COPY={
+  hero:{title:"데이터센터를 둘러싼<br>세 가지 변수",
+    body:["미국 중간선거 이후<br class=\"pc\"> <b>데이터센터</b> 증설이 어려워질 것이란 전망이 나옵니다.<br class=\"pc\"> 시장이 눈여겨본 <b>변수 세 가지</b>를 따라가 봤습니다."]},
+
+  bill:{photo:{src:"./photos/datacenter-ashburn.jpg",cap:"미국 버지니아주 애슈번의 데이터센터 단지.",credit:"사진=Theodore Christopher / <a href='https://commons.wikimedia.org/wiki/File:Data_centers_in_Ashburn.jpg' target='_blank' rel='noopener'>Wikimedia Commons</a> / <a href='https://creativecommons.org/publicdomain/zero/1.0/deed.ko' target='_blank' rel='noopener'>CC0</a> / 일부 잘라 사용",pos:"50% 62%"},
+    title:"챗봇은 OK, 전기료는 글쎄요?",
+    body:["챗봇의 똑똑한 답변은 반갑습니다.",
+          "하지만 우리 집 전기료를 올린다면 어떨까요?",
+          "전기 먹는 하마가 들어오는데 왜 주민이 비용을 내야 하느냐.<br>미국 중간선거에서 화두가 된 여론은 이 물음에서 나왔습니다."]},
+
+  issue:{title:"쟁점은 딱 두 가지, 전기와 물",
+    body:["선거는 민주당의 압승으로 끝났습니다. 이른바 '블루웨이브'입니다.",
+          "한국투자증권 김건우 연구원은 데이터센터 짓기가 어려워질 것으로 봤습니다.",
+          "데이터센터는 변전 설비로 전기를 끌어옵니다. 서버가 내뿜는 열은 냉각 설비가 물로 식힙니다.",
+          "규제를 손볼 때 도마에 오를 것도 이 두 가지입니다.<br>지역 물을 얼마나 쓰게 할지, 오른 전기요금은 누가 책임질지."]},
+
+  market:{title:"반도체부터 주가가 흔들렸습니다",
+    body:["<b>데이터센터 건설이 늦어지면 그 안에 들어갈 반도체 주문도 밀려 타격을 입게 됩니다.</b>",
+          "선거 직후 코스피는 하루 만에 5% 넘게 빠졌습니다. 이튿날엔 장중 5000선도 깨졌습니다.",
+          "증권가는 세 가지를 따져 봤습니다.<br>전기는 어디서 구하나, 한국 반도체는 괜찮나, 땅 말고 지을 곳은 없나."]},
+
+  c1:{title:"전기부터 해결한다"},
+
+  ms:{eb:"해법 ① 직접 마련",
+    title:"마이크로소프트는 발전소를 옆에 둡니다",
+    body:["빅테크의 해법은 의외로 단순합니다. 필요한 전기는 직접 마련하고, 남들이 많이 쓸 때는 잠시 덜 쓰겠다는 겁니다.",
+          "마이크로소프트는 텍사스 데이터센터에 쓸 전기를 20년간 따로 받기로 했습니다.",
+          "셰브론이 데이터센터 바로 옆에 전용 가스발전소를 지을 계획입니다. 필요한 전기를 따로 마련해 지역 전력망의 부담을 줄이겠다는 구상입니다."]},
+
+  google:{eb:"해법 ② 덜 쓰기",
+    title:"구글은 전기를 많이 쓰는 시간을 피해 갑니다",
+    body:["구글은 전력회사들과 총 1GW 규모의 전력 수요 조절 계약을 맺었습니다.",
+          "전기 사용량이 크게 늘어나는 시간에는 급하지 않은 AI 작업을 뒤로 미룹니다."],
+    figcap:"전기 사용량이 크게 늘어나는 시간에 데이터센터가 사용량을 줄이는 방식.",figcredit:"개념도"},
+
+  sofc:{photo:{src:"./photos/bloom-server.jpg",cap:"이베이 본사 앞에 놓인 블룸에너지 연료전지(2010년).",credit:"사진=Bloom Energy(Jakub Mosur 촬영) / <a href='https://commons.wikimedia.org/wiki/File:Bloom_Energy_Servers_at_eBay_HQ_-_4405533596.jpg' target='_blank' rel='noopener'>Wikimedia Commons</a> / <a href='https://creativecommons.org/licenses/by/2.0/deed.ko' target='_blank' rel='noopener'>CC BY 2.0</a> / 일부 잘라 사용",pos:"35% 88%"},
+    title:"냉각탑 없는 발전기가 있다고요?",
+    body:["데이터센터 마당에 놓고 그 자리에서 전기를 만드는 설비가 있습니다. 고체산화물연료전지(SOFC)입니다. 미국 블룸에너지가 만듭니다.",
+          "김 연구원 설명은 이렇습니다. 기존 발전소와 달리 냉각탑이 필요 없습니다. 물은 연료를 처리하는 과정에서만 조금 쓴다는 설명입니다.",
+          "전력망을 거치지 않으니 지역 전력망에서 끌어 쓸 전기도 줄일 수 있습니다."]},
+
+  dec:{title:"다음 고비는 12월 10일",
+    body:["텍사스주는 데이터센터가 전력망과 지역 물 사용에 미치는 영향을 조사하고 있습니다.",
+          "전력망 운영기관(ERCOT)이 12월 10일까지 최종 보고서를 냅니다. 앞으로 규제가 어디로 갈지 가늠할 자료입니다."]},
+
+  c2:{title:"한국 반도체는 괜찮을까?"},
+
+  delay:{eb:"규모",
+    title:"AI 투자, 취소보다 지연될 가능성",
+    body:["규제가 세지면 AI 투자가 아예 멈추는 건 아닐까요?",
+          "미래에셋증권이 따져 보니 규제에 걸릴 수 있는 데이터센터 용량은 최대 13GW. 2035년까지 늘어날 150GW의 9%쯤입니다.",
+          "그래서 AI 투자가 취소되기보다 지연될 가능성이 크다고 봤습니다."]},
+
+  calc:{solo:true,
+    figcap:"미국 데이터센터 설치 용량. 2035년까지 150GW가 추가될 전망이고, 규제 영향권은 그중 최대 13GW입니다.",figcredit:"자료: 아리스타(OCP 글로벌 서밋 2026), 미래에셋증권 리서치센터 · 2026~2035년은 블룸버그NEF 전망"},
+
+  korea:{eb:"미국 밖",
+    title:"한국에 더 지을 수도 있습니다",
+    body:["한국 등 미국 외 지역에 증설할 가능성도 있습니다.",
+          "최유진 미래에셋증권 연구원은 빅테크의 신규 투자가 아시아로 분산될 가능성에 주목했습니다.",
+          "싱가포르·도쿄·홍콩은 대규모 전력과 넓은 부지를 확보하기 어렵습니다. 한국은 둘 다 확보할 수 있는 곳으로 꼽혔습니다.",
+          "데이터센터와 해저케이블을 함께 가진 국내 통신 3사가 수혜를 볼 수 있다는 분석입니다."]},
+
+  inside:{title:"마냥 미룰 수도 없는 사정",
+    body:["데이터센터 투자를 늦추면 빅테크도 당장 나갈 돈이 줄고, 새로 빚을 낼 부담도 덜 수 있겠죠.",
+          "하지만 이미 고객사와 맺어 둔 클라우드 계약이 많습니다. 약속을 지키려면 데이터센터를 지어야 합니다.",
+          "게다가 수요는 계속 늘고, 클라우드 매출도 크게 뛰고 있는 상황.",
+          "그런 만큼 계속 미루기는 어렵다는 게 보고서의 판단입니다."]},
+
+  hbm:{photo:{src:"./photos/samsung-hbm.jpg",src2:"./photos/skhynix-hbm.jpg",stack:true,cap:"삼성전자(위)와 SK하이닉스의 HBM4.",credit:"각 사 제공"},
+    title:"HBM은 계약으로 묶여 있습니다",
+    body:["한국 반도체주는 제품별로 나눠 봐야 합니다.",
+          "권영배·김영건 미래에셋증권 연구원은 \"장기계약(LTA)으로 수요가 묶인 고대역폭메모리(HBM)는 비교적 안정적일 것\"이라고 짚었습니다."]},
+
+  dram:{title:"범용 D램과 SSD는 어떨까요?",
+    body:["범용 D램과 SSD는 CPU와 함께 서버에 들어갑니다. 서버를 놓을 데이터센터가 늦어지면 주문도 따라 밀릴 수 있겠죠.",
+          "다만, 걱정할 정도는 아니라는 게 두 연구원의 결론입니다.",
+          "\"HBM 전환으로 범용 D램 공급이 더 빠듯해지는 점을 고려하면 우려 요인은 아니다\"라는 겁니다.",
+          "반도체 회사들이 생산 라인을 HBM 쪽으로 돌리면서 범용 D램은 만들 수 있는 양이 줄어든 상황. 주문이 조금 밀려도 공급이 빠듯해 충격은 크지 않다는 얘기입니다."]},
+
+  c3:{title:"땅이 안 되면 바다로"},
+
+  sea:{title:"데이터센터가 바다에 둥둥",
+    body:["땅에서 허가받기 어렵다면 물 위는 어떨까요?",
+          "한국투자증권 강경태 연구원이 꼽은 대안이 부유식 데이터센터(FDC)입니다.",
+          "서버와 전력·냉각 설비를 통째로 물에 띄운 시설입니다. 조선소에서 만들어 끌고 와 물가에 묶어 둡니다."]},
+
+  fdc:{photo:{src:"./photos/shi-fdc-model.jpg",cap:"데이터센터월드에 전시된 삼성중공업 FDC 모형.",credit:"삼성중공업 제공",pos:"60% 62%"},
+    title:"50㎿급 2기, 본계약이 눈앞",
+    body:["삼성중공업이 미국 데이터센터 개발사 무스테리안과 본계약을 앞두고 있습니다.",
+          "50㎿급 FDC 2기를 설계부터 시공까지 맡는 계약입니다. 올해 4분기 안에 체결될 것으로 보입니다.",
+          "강 연구원은 본계약이 성사되면 \"관련 인허가 요건들이 실질적으로 해소됐음을 의미한다\"며 세계 FDC 시장의 초석이 될 것으로 내다봤습니다."]},
+
+  rule:{title:"주민과 부딪칠 일이 적습니다",
+    body:["물론 바다에 띄운다고 규제가 사라지는 건 아니죠. FDC도 규제를 통과해야 합니다.",
+          "하지만 육상 데이터센터가 막힌 이유는 물과 전기요금을 둘러싼 주민 반발이었습니다.",
+          "바다 위 시설은 주민 생활과 직접 부딪칠 일이 적습니다. 그런 만큼 육상보다 풀기 쉽다는 게 강 연구원의 판단입니다."]},
+
+  how:{eb:"물과 전기",
+    title:"물은 아끼고, 전기는 근처에서 바로 얻습니다",
+    body:["육상 데이터센터는 흔히 물을 증발시켜 열을 식힙니다. 그만큼 지역의 물이 줄어듭니다.",
+          "개발사 무스테리안은 물을 증발시키지 않는 냉각 방식을 쓴다고 밝혔습니다. 마실 수 있는 물을 끌어다 쓰지 않고, 쓰고 난 물을 강이나 바다에 흘려보내지도 않는다는 설명입니다.",
+          "전기는 이미 돌아가는 발전소 바로 앞 물 위에 FDC를 대고 받습니다. 넓은 땅을 따로 구하지 않아도 발전소 전기를 가까이서 쓸 수 있다는 게 개발사의 설명입니다.",
+          "선거에서 불거진 두 쟁점, 물과 전기를 비켜 가는 설계입니다."]},
+
+  cost:{title:"짓는 돈도, 굴리는 돈도 덜 든다",
+    body:["강 연구원은 FDC가 사업비와 운영비 모두 육상 데이터센터보다 낫다고 봤습니다."]},
+
+  yard:{photo:{src:"./photos/drillship.jpg",pos:"50% 55%",src2:"./photos/drillship-ds11.jpg",pos2:"52% 50%",src3:"./photos/drillship-champion.jpg",pos3:"53% 50%",cap:"삼성중공업이 지은 '엔스코 DS-6', 한화오션(옛 대우조선해양)의 '엔스코 DS-11', HD현대중공업의 '딥워터 챔피언'(왼쪽·위부터).",credit:"사진=George E. Koronaios / <a href='https://commons.wikimedia.org/wiki/File:The_drilling_ship_ENSCO_DS-6_in_the_Saronic_Gulf_on_July_27,_2021.jpg' target='_blank' rel='noopener'>Wikimedia Commons</a> / <a href='https://creativecommons.org/licenses/by-sa/4.0/deed.ko' target='_blank' rel='noopener'>CC BY-SA 4.0</a>, Wolfgang Fricke / <a href='https://commons.wikimedia.org/wiki/File:Ensco_DS-11_IMO_9626170_O_Las_Palmas_15-02-2025.jpg' target='_blank' rel='noopener'>Wikimedia Commons</a> / <a href='https://creativecommons.org/licenses/by/3.0/deed.ko' target='_blank' rel='noopener'>CC BY 3.0</a>, Michael Elleray / <a href='https://commons.wikimedia.org/wiki/File:Deepwater_Champion_(5443740072).jpg' target='_blank' rel='noopener'>Wikimedia Commons</a> / <a href='https://creativecommons.org/licenses/by/2.0/deed.ko' target='_blank' rel='noopener'>CC BY 2.0</a> / 일부 잘라 사용"},
+    title:"2010년 드릴십, 기억하시나요?",
+    body:["드릴십은 깊은 바다 밑 유전을 뚫는 배입니다.",
+          "고유가로 심해 유전 개발이 붐이던 2010년, 한국 조선사들이 이 시장을 독식했습니다."]},
+
+  yard2:{title:"이번에도 한국 조선이 선택받을까요?",
+    body:["강 연구원은 FDC에서도 가능성이 있다고 봅니다.",
+          "삼성중공업·한화오션·HD현대중공업이 핵심 공급자로 떠오를 잠재력이 있다는 평가입니다."]},
+
+  end:{title:"선거가 바꾼 데이터센터,<br>세 가지 변수",
+    after:"증권가의 시각은 한곳으로 모입니다. 규제가 세져도 데이터센터 투자는 길을 바꿔 계속된다는 것입니다. 걱정만 할 상황은 아니라는 얘기입니다."}
+};
+(function(){
+  for(var i=0;i<CONFIG.steps.length;i++){
+    var st=CONFIG.steps[i],c=COPY[st.id];
+    if(!c)continue;
+    for(var k in c)if(c.hasOwnProperty(k))st[k]=c[k];
+  }
+})();
+
+/* ---------- 본문 DOM 생성 ---------- */
+var story=document.getElementById("story"),rail=document.getElementById("rail"),labelsEl=document.getElementById("labels");
+var stepEls=[],navEls=[],labelItems=[];
+
+function capacitySVG(){
+  // 미국 데이터센터 설치 용량(GW). 2010~2025 실적, 2026~2035 전망. 막대 높이는 보고서 그림에서 읽은 근삿값.
+  var v=[4,5,5,6,7,8,9,10,12,14,17,21,23,27,38,48,56,70,86,102,118,135,153,167,181,193];
+  var W=560,H=392,x0=46,x1=532,yb=236,yt=30,n=v.length,bw=(x1-x0)/n,i,s;
+  function Y(g){return yb-(yb-yt)*g/200;}
+  s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="미국 데이터센터 설치 용량과 규제 영향권" style="display:block;width:100%;height:auto;background:#0b151d">';
+  var gs=[0,50,100,150,200];
+  for(i=0;i<gs.length;i++){
+    s+='<line x1="'+x0+'" y1="'+Y(gs[i])+'" x2="'+x1+'" y2="'+Y(gs[i])+'" stroke="rgba(255,255,255,'+(i?0.08:0.3)+')"/>';
+    s+='<text x="'+(x0-8)+'" y="'+(Y(gs[i])+4)+'" text-anchor="end" font-size="12" fill="#8fa1ad">'+gs[i]+'</text>';
+  }
+  s+='<text x="'+(x0-8)+'" y="18" text-anchor="end" font-size="12" fill="#8fa1ad">GW</text>';
+  for(i=0;i<n;i++){
+    var x=x0+i*bw+bw*0.16,fc=i<=15?"#7f8c96":"#f0a95a";
+    s+='<rect x="'+x.toFixed(1)+'" y="'+Y(v[i]).toFixed(1)+'" width="'+(bw*0.68).toFixed(1)+'" height="'+(yb-Y(v[i])).toFixed(1)+'" fill="'+fc+'"/>';
+  }
+  var xs=[[0,"2010"],[5,"2015"],[10,"2020"],[15,"2025"],[20,"2030"],[25,"2035"]];
+  for(i=0;i<xs.length;i++)s+='<text x="'+(x0+(xs[i][0]+0.5)*bw).toFixed(1)+'" y="'+(yb+18)+'" text-anchor="middle" font-size="12" fill="#8fa1ad">'+xs[i][1]+'</text>';
+  s+='<text x="'+x1+'" y="22" text-anchor="end" font-size="15" font-weight="900" fill="#fff">2035년까지 150GW 추가</text>';
+  s+='<rect x="'+x0+'" y="'+(yb+34)+'" width="10" height="10" fill="#7f8c96"/><text x="'+(x0+15)+'" y="'+(yb+43)+'" font-size="12" fill="#c3ced6">실적</text>';
+  s+='<rect x="'+(x0+52)+'" y="'+(yb+34)+'" width="10" height="10" fill="#f0a95a"/><text x="'+(x0+67)+'" y="'+(yb+43)+'" font-size="12" fill="#c3ced6">전망</text>';
+  // 새로 생길 150GW 가운데 13GW
+  var by=yb+70,bh=26,full=x1-x0,part=full*13/150;
+  s+='<text x="'+x0+'" y="'+(by-8)+'" font-size="13" font-weight="700" fill="#e3eaef">새로 생길 150GW</text>';
+  s+='<rect x="'+x0+'" y="'+by+'" width="'+full+'" height="'+bh+'" fill="#f0a95a"/>';
+  s+='<rect x="'+x0+'" y="'+by+'" width="'+part.toFixed(1)+'" height="'+bh+'" fill="#ff5a3c"/>';
+  s+='<line x1="'+(x0+part/2).toFixed(1)+'" y1="'+(by+bh)+'" x2="'+(x0+part/2).toFixed(1)+'" y2="'+(by+bh+10)+'" stroke="#ff7a59"/>';
+  s+='<text x="'+x0+'" y="'+(by+bh+26)+'" font-size="14" font-weight="900" fill="#ff7a59">규제 영향권 최대 13GW · 약 9%</text>';
+  return s+"</svg>";
+}
+function demandSVG(){
+  // 하루 전력 수요(회색)와 데이터센터 사용량(민트) 개념도
+  var W=560,H=300,x0=44,x1=536,y0=250,i,p="",q="";
+  function X(h){return x0+(x1-x0)*h/24;}
+  function D(h){return 0.42+0.2*Math.exp(-Math.pow((h-9)/3.2,2))+0.5*Math.exp(-Math.pow((h-18.5)/2.4,2));}
+  function U(h){var d=Math.max(0,1-Math.abs(h-18.5)/2.6);return 0.5-0.26*(d>0?Math.min(1,d*1.8):0);}
+  for(i=0;i<=96;i++){var h=i/4;p+=(i?"L":"M")+X(h).toFixed(1)+" "+(y0-D(h)*190).toFixed(1);q+=(i?"L":"M")+X(h).toFixed(1)+" "+(y0-U(h)*190).toFixed(1);}
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="전력 수요가 몰리는 시간에 데이터센터가 사용량을 줄이는 개념도" style="display:block;width:100%;height:auto;background:#0b151d">';
+  s+='<rect x="'+X(16)+'" y="26" width="'+(X(21)-X(16))+'" height="'+(y0-26)+'" fill="rgba(255,122,89,.14)"/>';
+  s+='<text x="'+X(18.5)+'" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#ff9d84">전기를 많이 쓰는 시간</text>';
+  s+='<path d="'+p+'L'+x1+' '+y0+'L'+x0+' '+y0+'Z" fill="rgba(160,178,190,.16)"/><path d="'+p+'" fill="none" stroke="#9fb0bb" stroke-width="2"/>';
+  s+='<path d="'+q+'" fill="none" stroke="#5ef2c8" stroke-width="3.5" stroke-linejoin="round"/>';
+  s+='<line x1="'+x0+'" y1="'+y0+'" x2="'+x1+'" y2="'+y0+'" stroke="#55687a"/>';
+  var ticks=[0,6,12,18,24];
+  for(i=0;i<ticks.length;i++)s+='<text x="'+X(ticks[i])+'" y="'+(y0+20)+'" text-anchor="middle" font-size="13" fill="#8fa1ad">'+ticks[i]+'시</text>';
+  s+='<text x="'+X(8.6)+'" y="'+(y0-D(9)*190-12)+'" text-anchor="middle" font-size="14" fill="#c3ced6">지역 전체 전력 수요</text>';
+  s+='<text x="'+X(3.2)+'" y="'+(y0-0.5*190-12)+'" text-anchor="middle" font-size="14" font-weight="700" fill="#5ef2c8">데이터센터 사용량</text>';
+  s+='<text x="'+X(18.5)+'" y="'+(y0-0.24*190+24)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#5ef2c8">잠시 줄임</text>';
+  return s+"</svg>";
+}
+function chartSVG(){
+  var d=CONFIG.index,W=380,H=150,pl=8,pr=8,pt=26,pb=30,i,min=1e9,max=-1e9;
+  for(i=0;i<d.length;i++){if(d[i].v<min)min=d[i].v;if(d[i].v>max)max=d[i].v;}
+  var pad=(max-min)*0.12;min-=pad;max+=pad;
+  var pts=[],s='<svg class="idx" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="코스피 흐름">';
+  for(i=0;i<d.length;i++){
+    var x=pl+(W-pl-pr)*((i+0.5)/d.length),y=pt+(H-pt-pb)*(1-(d[i].v-min)/(max-min));
+    pts.push([x,y]);
+  }
+  var path="";
+  for(i=0;i<pts.length;i++)path+=(i?"L":"M")+pts[i][0].toFixed(1)+" "+pts[i][1].toFixed(1);
+  s+='<path d="'+path+'" fill="none" stroke="#ff6b5e" stroke-width="2.5" stroke-linejoin="round"/>';
+  for(i=0;i<pts.length;i++){
+    var m=d[i].mark;
+    s+='<circle cx="'+pts[i][0].toFixed(1)+'" cy="'+pts[i][1].toFixed(1)+'" r="'+(m?5.5:3.5)+'" fill="'+(m?"#ff6b5e":"#0a1016")+'" stroke="#ff6b5e" stroke-width="2"/>';
+    s+='<text x="'+pts[i][0].toFixed(1)+'" y="'+(pts[i][1]-11).toFixed(1)+'" text-anchor="middle" font-size="'+(m?15:12.5)+'" font-weight="'+(m?900:700)+'" fill="#fff">'+Math.round(d[i].v)+'</text>';
+    s+='<text x="'+pts[i][0].toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="11.5" fill="#9fb0bb">'+d[i].d+'</text>';
+  }
+  return s+"</svg>";
+}
+
+(function build(){
+  var i,j,st,sec,html,a;
+  for(i=0;i<CONFIG.steps.length;i++){
+    st=CONFIG.steps[i];
+    sec=document.createElement("section");
+    sec.className="step "+(st.side||"l")+(st.hero?" hero":"")+(st.chapter?" chap":"")+((st.photo||st.diagram)?" ph2":"")+(st.solo?" solo":"");
+    sec.id="s-"+st.id;
+    sec.style.setProperty("--h",st.h);
+    if(st.ac)sec.style.setProperty("--ac",st.ac);
+    html='<div class="cap">';
+    if(st.chapter)html+='<span class="cn">'+st.chapter+"</span>";
+    if(st.eb)html+='<span class="eb">'+st.eb+"</span>";
+    html+=(st.hero?"<h1>":"<h2>")+st.title+(st.hero?"</h1>":"</h2>");
+    if(st.body)for(j=0;j<st.body.length;j++)html+="<p>"+st.body[j]+"</p>";
+    if(st.chart)html+=chartSVG();
+    if(st.list){html+="<ol>";for(j=0;j<st.list.length;j++)html+="<li><b>"+st.list[j][0]+"</b><span>"+st.list[j][1]+"</span></li>";html+="</ol>";}
+    if(st.bars){
+      html+='<div class="bars">';
+      for(j=0;j<st.bars.length;j++){
+        var bg=st.bars[j],mx=0,q;
+        for(q=0;q<bg.rows.length;q++)if(bg.rows[q][1]>mx)mx=bg.rows[q][1];
+        html+='<span class="bl">'+bg.label+"</span>";
+        for(q=0;q<bg.rows.length;q++)html+='<div class="br'+(bg.rows[q][3]?" hi":"")+'"><em>'+bg.rows[q][0]+'</em><div class="tr"><i style="width:'+(100*bg.rows[q][1]/mx).toFixed(1)+'%"></i></div><b>'+bg.rows[q][2]+"</b></div>";
+      }
+      html+="</div>";
+    }
+    if(st.barsrc)html+='<span class="bsrc">'+st.barsrc+"</span>";
+    if(st.check)html+='<span class="chk">'+st.check+"</span>";
+    if(st.after)html+='<p class="aft">'+st.after+"</p>";
+    if(st.hero){
+      var m=CONFIG.market;
+      if(m)html+='<div class="chip">'+m.label+" <b>"+m.value+'</b><i class="'+(m.up?"up":"dn")+'">'+m.change+"</i> "+m.date+"</div>";
+      html+='<div class="hint">SCROLL</div>';
+    }
+    if(st.credit)html+='<div class="credit">'+st.credit+"</div>";
+    html+="</div>";
+    if(st.related){
+      var AR='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 3h4v4M13 3L7 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      html+='<div class="relwrap"><span class="relh">관련 기사</span><div class="relgrid">';
+      for(j=0;j<st.related.length;j++){
+        var rl=st.related[j];
+        html+='<a class="rcard" href="'+rl[2]+'" target="_blank" rel="noopener"><img src="'+rl[3]+'" alt="" loading="lazy" style="object-position:'+rl[4]+'"><div class="rtx"><em>'+rl[0]+'</em><strong>'+rl[1]+'</strong><span class="rbtn">기사 원문 보기'+AR+'</span></div></a>';
+      }
+      html+="</div></div>";
+      sec.className+=" fin";
+    }
+    if(st.diagram){
+      html+='<div class="cap pcard"><figure class="ph">'+(st.diagram==="capacity"?capacitySVG():demandSVG())+'<figcaption>'+(st.figcap||"")+' <em>'+(st.figcredit||"")+'</em></figcaption></figure></div>';
+    }
+    if(st.photo){
+      var ph=st.photo,hide="this.closest('.pcard').style.display='none'";
+      var im1='<img src="'+ph.src+'" alt="" loading="lazy" style="object-position:'+(ph.pos||"50% 50%")+'" onerror="'+hide+'">';
+      if(ph.src2)im1='<div class="two'+(ph.stack?" stack":"")+(ph.src3?" three":"")+'">'+im1+'<img src="'+ph.src2+'" alt="" loading="lazy" style="object-position:'+(ph.pos2||"50% 50%")+'" onerror="'+hide+'">'+(ph.src3?'<img src="'+ph.src3+'" alt="" loading="lazy" style="object-position:'+(ph.pos3||"50% 50%")+'" onerror="'+hide+'">':'')+'</div>';
+      html+='<div class="cap pcard"><figure class="ph">'+im1+'<figcaption>'+ph.cap+' <em>'+ph.credit+'</em></figcaption></figure></div>';
+    }
+    sec.innerHTML=html;
+    story.appendChild(sec);
+    stepEls.push(sec);
+
+    if(st.nav){
+      a=document.createElement("a");
+      a.innerHTML="<em>"+st.nav+"</em>";
+      a.setAttribute("data-i",i);
+      a.onclick=function(){var k=+this.getAttribute("data-i");var r=stepEls[k].getBoundingClientRect();window.scrollTo({top:window.pageYOffset+r.top+r.height/2-window.innerHeight/2,behavior:"smooth"});};
+      rail.appendChild(a);navEls.push({el:a,step:i});
+    }
+
+    if(st.labels)for(j=0;j<st.labels.length;j++){
+      var el=document.createElement("div");
+      el.className="lbl "+(st.labels[j].c||"");
+      el.innerHTML="<i></i><b></b><span>"+st.labels[j].text+"</span>";
+      labelsEl.appendChild(el);
+      labelItems.push({el:el,at:st.labels[j].at,node:st.labels[j].node,step:i,k:st.labels[j].k});
+    }
+  }
+})();
+
+/* ---------- 스크롤 → 진행값 ---------- */
+var keys=[];            // {y:스크롤 위치, p:Vector3, t:Vector3, step}
+var barU=document.querySelector("#bar u");
+function layout(){
+  keys=[];
+  var i,j,st,top,h,n,sy=window.pageYOffset,vh=window.innerHeight;
+  for(i=0;i<stepEls.length;i++){
+    st=CONFIG.steps[i];
+    var r=stepEls[i].getBoundingClientRect();
+    top=r.top+sy;h=r.height;n=st.cam.length;
+    for(j=0;j<n;j++)keys.push({y:top+h*((j+0.5)/n)-vh/2,p:st.cam[j].p,mobile:st.cam[j].mobile,mobileTarget:st.cam[j].mobileTarget,t:st.cam[j].t,step:i,k:j});
+  }
+}
+function smooth(x){x=x<0?0:x>1?1:x;return x*x*(3-2*x);}
+function sample(sy){
+  var n=keys.length,i;
+  if(sy<=keys[0].y)return{a:keys[0],b:keys[0],u:0};
+  if(sy>=keys[n-1].y)return{a:keys[n-1],b:keys[n-1],u:0};
+  for(i=0;i<n-1;i++)if(sy<keys[i+1].y)break;
+  var u=(sy-keys[i].y)/(keys[i+1].y-keys[i].y);
+  // 구간 가운데서는 잠시 머문다
+  return{a:keys[i],b:keys[i+1],u:smooth((u-0.18)/0.64)};
+}
+
+/* ---------- WebGL ---------- */
+var THREE=window.THREE,stage=document.getElementById("stage");
+var renderer=null;
+var leadArt=document.getElementById("lead-art");
+var cover=new Image();
+cover.onload=function(){leadArt.style.backgroundImage="url("+cover.src+")";document.documentElement.classList.add("has-cover");};
+cover.src="./photos/ch-land.jpg";
+var chArts=[];
+(function(){
+  for(var i=0;i<CONFIG.steps.length;i++){
+    var st=CONFIG.steps[i];if(!st.art)continue;
+    var d=document.createElement("div");d.className="ch-art";d.setAttribute("aria-hidden","true");
+    d.style.backgroundImage="url("+st.art+")";if(st.artPos)d.style.backgroundPosition=st.artPos;
+    d.innerHTML="<span>AI 생성 콘셉트 이미지</span>";
+    leadArt.parentNode.insertBefore(d,leadArt.nextSibling);
+    chArts.push({el:d,step:i,o:-1});
+  }
+})();
+function updateLead(s){
+  for(var ci=0;ci<chArts.length;ci++){
+    var ca=chArts[ci],co=0;
+    if(s.a.step===ca.step&&s.b.step===ca.step)co=1;
+    else if(s.a.step===ca.step)co=1-smooth(s.u/0.55);
+    else if(s.b.step===ca.step)co=smooth((s.u-0.45)/0.55);
+    if(co!==ca.o){ca.o=co;ca.el.style.opacity=co;}
+  }
+  var opacity=s.a.step===0?(s.b.step===0?1:1-smooth(s.u*2.3)):0;
+  leadArt.style.opacity=document.documentElement.classList.contains("has-cover")?opacity:0;
+}
+try{
+  if(!THREE)throw 0;
+  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
+}catch(e){renderer=null;}
+if(!renderer){
+  document.documentElement.classList.add("no-webgl");
+  function updateFallback(){
+    layout();
+    var max=document.documentElement.scrollHeight-window.innerHeight;
+    barU.style.width=(max>0?100*window.pageYOffset/max:0)+"%";
+    updateLead(sample(window.pageYOffset));
+  }
+  cover.addEventListener("load",updateFallback);
+  window.addEventListener("scroll",updateFallback,{passive:true});
+  window.addEventListener("resize",updateFallback);
+  updateFallback();
+  return;
+}
+
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.6));
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.08;
+stage.appendChild(renderer.domElement);
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x061018);
+scene.fog=new THREE.Fog(0x43576a,145,640);
+var camera=new THREE.PerspectiveCamera(48,1,0.1,1400);
+
+var hemi=new THREE.HemisphereLight(0xbdd6ef,0x546070,1.55);scene.add(hemi);
+var moon=new THREE.DirectionalLight(0xffd6ae,2.75);moon.position.set(-155,95,285);scene.add(moon);
+var fill=new THREE.DirectionalLight(0xa9cdff,0.94);fill.position.set(180,100,-300);scene.add(fill);
+var sky=new THREE.Mesh(new THREE.SphereGeometry(1000,32,16),new THREE.ShaderMaterial({
+  side:THREE.BackSide,depthWrite:false,fog:false,
+  vertexShader:"varying vec3 world; void main(){world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+  fragmentShader:[
+    "varying vec3 world;",
+    "void main(){",
+    "vec3 ray=normalize(world-cameraPosition);",
+    "float height=max(ray.y,0.);",
+    "vec3 sky=mix(vec3(.285,.365,.455),vec3(.037,.071,.128),pow(smoothstep(0.,.7,height),.6));",
+    "float glow=pow(max(dot(ray,normalize(vec3(-.5,.05,1.))),0.),7.)*exp(-height*7.);",
+    "float haze=exp(-abs(ray.y)*19.);",
+    "vec3 horizon=vec3(.32,.395,.47)+glow*vec3(.16,.07,.025);",
+    "gl_FragColor=vec4(mix(sky+glow*vec3(.23,.105,.045),horizon,haze*.48),1.);",
+    "}"
+  ].join("\n")
+}));
+sky.frustumCulled=false;sky.renderOrder=-5;scene.add(sky);
+
+function lam(c,o){return new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));}
+function bas(c,o){return new THREE.MeshBasicMaterial(Object.assign({color:c},o||{}));}
+function coated(c,roughness,metalness){
+  return new THREE.MeshStandardMaterial({color:c,roughness:roughness,metalness:metalness});
+}
+function batch(parent,geometry,material,parts){
+  if(!parts.length)return;
+  var group=new THREE.InstancedMesh(geometry,material,parts.length);
+  var node=new THREE.Object3D();
+  parts.forEach(function(p,i){
+    node.position.set(p[0],p[1],p[2]);
+    node.scale.set(p[3],p[4],p[5]);
+    node.rotation.y=p[6]||0;
+    node.updateMatrix();group.setMatrixAt(i,node.matrix);
+  });
+  group.instanceMatrix.needsUpdate=true;
+  parent.add(group);
+}
+var unitBox=new THREE.BoxGeometry(1,1,1);
+function box(w,h,d,mat,x,y,z,parent){var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);(parent||scene).add(m);return m;}
+
+var AMBER=0xffb23e,CYAN=0x4fe3ff,RED=0xff7a59,MINT=0x5ef2c8,SHORE=78;
+var HALL={w:64,h:12,d:36};
+
+/* 모델 로더: 단일 파일 미리보기는 window.__MODELS(base64), 레포는 ./models/*.glb */
+var gltfLoader=new THREE.GLTFLoader();
+function loadModel(name,cb){
+  var emb=window.__MODELS&&window.__MODELS[name];
+  function done(g){
+    g.scene.traverse(function(o){
+      if(o.isMesh&&o.material){
+        var n=o.material.name;
+        if(n==="glass"){o.material.emissive=new THREE.Color(0xffc98a);o.material.emissiveIntensity=1.1;}
+        if(n==="lamp"){o.material.emissive=new THREE.Color(0xff4a30);o.material.emissiveIntensity=2.2;}
+        if(n==="yellow"){o.material.emissive=new THREE.Color(0x6b3a05);o.material.emissiveIntensity=0.45;}
+        o.material.roughness=n==="glass"?0.35:0.61;o.material.metalness=0.16;
+      }
+    });
+    cb(g.scene);
+  }
+  if(emb){
+    var bin=atob(emb),u=new Uint8Array(bin.length),i;for(i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+    gltfLoader.parse(u.buffer,"",done,function(e){console.error("model",name,e);});
+  }else gltfLoader.load("./models/"+name+".glb",done,undefined,function(e){console.error("model",name,e);});
+}
+function hasModel(name){return !!(window.__MODELS&&window.__MODELS[name]);}
+function placeOr(name,list,fallback,after){
+  // 단일 파일 미리보기에서 모델이 아직 없으면 코드로 만든 임시 모형을 쓴다
+  if(window.__MODELS&&!hasModel(name)){for(var i=0;i<list.length;i++)fallback(list[i],i);return;}
+  var done=false;
+  function fb(){if(done)return;done=true;for(var i=0;i<list.length;i++)fallback(list[i],i);}
+  var emb=hasModel(name);
+  if(!emb){
+    gltfLoader.load("./models/"+name+".glb",function(g){
+      if(done)return;done=true;tune(g.scene);
+      for(var i=0;i<list.length;i++){var c=i?g.scene.clone(true):g.scene,p=list[i];c.position.set(p[0],p[1],p[2]);c.rotation.y=p[3]||0;if(p[4])c.scale.setScalar(p[4]);scene.add(c);if(after)after(c,i);}
+    },undefined,fb);
+  }else place(name,list,after);
+}
+function tune(root){
+  root.traverse(function(o){
+    if(o.isMesh&&o.material){
+      var n=o.material.name;
+      if(n==="glass"){o.material.emissive=new THREE.Color(0xffc98a);o.material.emissiveIntensity=1.1;}
+      if(n==="lamp"){o.material.emissive=new THREE.Color(0xff4a30);o.material.emissiveIntensity=2.2;}
+      if(n==="yellow"){o.material.emissive=new THREE.Color(0x6b3a05);o.material.emissiveIntensity=0.45;}
+      o.material.roughness=n==="glass"?0.35:0.61;o.material.metalness=0.16;
+    }
+  });
+}
+function place(name,list,after){
+  loadModel(name,function(m){
+    for(var i=0;i<list.length;i++){
+      var c=i?m.clone(true):m,p=list[i];
+      c.position.set(p[0],p[1],p[2]);c.rotation.y=p[3]||0;if(p[4])c.scale.setScalar(p[4]);
+      scene.add(c);if(after)after(c,i);
+    }
+  });
+}
+var dolphinSlots=[];
+
+/* 땅·도로 (z=SHORE 에서 바다 시작) */
+(function(){
+  var g=new THREE.Mesh(new THREE.PlaneGeometry(1400,640),lam(0x46515b));g.rotation.x=-Math.PI/2;g.position.set(60,0,SHORE-320);scene.add(g);
+  var road=lam(0x24313d);
+  box(520,0.06,7,road,60,0.03,-25);box(520,0.06,7,road,60,0.03,27);
+  box(7,0.06,220,road,41,0.03,-34);box(7,0.06,220,road,-38,0.03,-34);box(7,0.06,220,road,134,0.03,-34);
+  // 안벽
+  box(1400,3,2.4,lam(0x3b4954),60,-1.2,SHORE+1.2);
+  box(1400,0.5,0.5,bas(0x55687a),60,0.45,SHORE+2.1);
+})();
+
+var shellMats=[],shell=new THREE.Group(),fans=[],ledSets=[];
+
+/* 변전 설비·송전선 */
+var drops=[],vapors=[],waterG=new THREE.Group();scene.add(waterG);
+(function(){
+  var pm=lam(0x3f8fc4),tm=lam(0x5a7f99),i;
+  var vc=document.createElement("canvas");vc.width=vc.height=128;var vx=vc.getContext("2d"),vg=vx.createRadialGradient(64,64,0,64,64,64);
+  vg.addColorStop(0,"rgba(255,255,255,1)");vg.addColorStop(0.45,"rgba(255,255,255,.45)");vg.addColorStop(1,"rgba(255,255,255,0)");
+  vx.fillStyle=vg;vx.fillRect(0,0,128,128);var vaporTex=new THREE.CanvasTexture(vc);
+  var tank=new THREE.Mesh(new THREE.CylinderGeometry(3.4,3.4,6.5,20),tm);tank.position.set(-42,3.25,27);waterG.add(tank);
+  var cap=new THREE.Mesh(new THREE.CylinderGeometry(3.6,3.6,0.4,20),lam(0x6fb7e0));cap.position.set(-42,6.7,27);waterG.add(cap);
+  var P=[[-42,1.3,27],[-24,1.3,27],[-24,1.3,18.9],[-24,12.9,18.9],[-24,12.9,6],[-10,12.9,6]];
+  var path=new THREE.CurvePath();
+  for(i=0;i<P.length-1;i++){
+    var a=new THREE.Vector3(P[i][0],P[i][1],P[i][2]),b=new THREE.Vector3(P[i+1][0],P[i+1][1],P[i+1][2]);
+    path.add(new THREE.LineCurve3(a,b));
+    var len=a.distanceTo(b),m=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,len+0.4,10),pm);
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());
+    waterG.add(m);
+  }
+  var dg=new THREE.SphereGeometry(0.62,10,8),dm=bas(0x7fdcff);
+  for(i=0;i<9;i++){var d=new THREE.Mesh(dg,dm);waterG.add(d);drops.push({m:d,c:path,o:i/9});}
+  var vp=[[-20,4],[-14,7],[-9,5],[-16,2],[-6,8],[-12,4]];
+  for(i=0;i<12;i++){
+    var mat=new THREE.SpriteMaterial({map:vaporTex,color:0xe9f4fb,transparent:true,depthWrite:false,opacity:0});
+    var sp=new THREE.Sprite(mat);waterG.add(sp);
+    vapors.push({s:sp,x:vp[i%6][0],z:vp[i%6][1],o:i/12+(i%6)*0.07});
+  }
+})();
+var pulses=[];
+(function(){
+  var cx=-56,steel=lam(0x6b7a86),i,j;
+  // 송전탑
+  function pylon(x,z){
+    var h=26;box(0.5,h,0.5,steel,x-1.4,h/2,z-1.4);box(0.5,h,0.5,steel,x+1.4,h/2,z-1.4);box(0.5,h,0.5,steel,x-1.4,h/2,z+1.4);box(0.5,h,0.5,steel,x+1.4,h/2,z+1.4);
+    for(var k=0;k<5;k++)box(3.3,0.25,3.3,steel,x,4+k*5,z);
+    box(0.4,0.4,15,steel,x,22,z);box(0.4,0.4,11,steel,x,25.6,z);
+  }
+  pylon(-80,-6);pylon(-122,-22);
+  var lineM=new THREE.LineBasicMaterial({color:0x8fa3b3});
+  var dotG=new THREE.SphereGeometry(0.42,10,8),dotM=bas(AMBER);
+  function wire(a,b,sag,n){
+    var mid=new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);mid.y-=sag;
+    var cv=new THREE.QuadraticBezierCurve3(a,mid,b);
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cv.getPoints(24)),lineM));
+    for(var k=0;k<n;k++){var d=new THREE.Mesh(dotG,dotM);scene.add(d);pulses.push({m:d,c:cv,o:k/n});}
+  }
+  for(i=-1;i<=1;i++){
+    wire(new THREE.Vector3(-122,22,-22+i*7),new THREE.Vector3(-80,22,-6+i*7),5,2);
+    wire(new THREE.Vector3(-80,22,-6+i*7),new THREE.Vector3(cx-10,8.2,i*10),3,2);
+  }
+  // 변전 → 본관
+  for(i=0;i<2;i++)wire(new THREE.Vector3(cx+8,3,-4+i*8),new THREE.Vector3(-HALL.w/2,5,-4+i*8),1.2,2);
+})();
+
+/* 짓다 만 동(C): 점선 테두리만 코드 (철골·타워크레인은 모델) */
+var jib;
+(function(){
+  var cx=82;
+  var pts=[new THREE.Vector3(cx-34,0.2,-20),new THREE.Vector3(cx+34,0.2,-20),new THREE.Vector3(cx+34,0.2,20),new THREE.Vector3(cx-34,0.2,20),new THREE.Vector3(cx-34,0.2,-20)];
+  var ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineDashedMaterial({color:RED,dashSize:2,gapSize:1.4}));ln.computeLineDistances();scene.add(ln);
+})();
+
+/* 빛 번짐 스프라이트 */
+var glowTex=(function(){
+  var c=document.createElement("canvas");c.width=c.height=64;var x=c.getContext("2d"),g=x.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,"rgba(255,255,255,.94)");g.addColorStop(0.22,"rgba(255,255,255,.38)");g.addColorStop(0.55,"rgba(255,255,255,.09)");g.addColorStop(1,"rgba(255,255,255,0)");
+  x.fillStyle=g;x.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);
+})();
+var glowMats={};
+function glow(x,y,z,col,size,parent,nofog){
+  var k=col+"_"+(nofog?1:0);
+  if(!glowMats[k])glowMats[k]=new THREE.SpriteMaterial({map:glowTex,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:!nofog});
+  var sp=new THREE.Sprite(glowMats[k]);sp.position.set(x,y,z);sp.scale.set(size,size,1);(parent||scene).add(sp);return sp;
+}
+
+/* FDC 2호기: 옆 발전소에서 받는 전기, 닫힌 냉각 배관 */
+var loops=[];
+(function(){
+  var a=new THREE.Vector3(92,9,70),b=new THREE.Vector3(62,7,92),mid=new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5),i;mid.y-=2.5;
+  var dg=new THREE.SphereGeometry(0.5,10,8),am=bas(AMBER);
+  for(i=-1;i<=1;i+=2){
+    var o=new THREE.Vector3(i*1.2,0,i*0.9),cv=new THREE.QuadraticBezierCurve3(a.clone().add(o),mid.clone().add(o),b.clone().add(o));
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cv.getPoints(24)),new THREE.LineBasicMaterial({color:0xd9b46a})));
+    for(var k=0;k<3;k++){var d=new THREE.Mesh(dg,am);scene.add(d);pulses.push({m:d,c:cv,o:k/3});}
+  }
+  box(0.6,9,0.6,lam(0x6b7a86),92,4.5,70);box(4,0.4,0.6,lam(0x6b7a86),92,9,70);
+  var P=[[26,9.6,117.7],[26,0.9,117.7],[62,0.9,117.7],[62,9.6,117.7]],pm=lam(0x3f8fc4),path=new THREE.CurvePath();
+  for(i=0;i<4;i++){
+    var p=new THREE.Vector3(P[i][0],P[i][1],P[i][2]),q=new THREE.Vector3(P[(i+1)%4][0],P[(i+1)%4][1],P[(i+1)%4][2]);
+    path.add(new THREE.LineCurve3(p,q));
+    var len=p.distanceTo(q),m=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,len+0.4,10),pm);
+    m.position.copy(p).add(q).multiplyScalar(0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),q.clone().sub(p).normalize());scene.add(m);
+  }
+  var wm=bas(0x7fdcff),g2=new THREE.SphereGeometry(0.6,10,8);
+  for(i=0;i<12;i++){var e=new THREE.Mesh(g2,wm);scene.add(e);loops.push({m:e,c:path,o:i/12});}
+})();
+
+/* 별·달 */
+(function(){
+  var pos=[],i;
+  for(i=0;i<135;i++){
+    var th=Math.random()*Math.PI*2,ph=Math.random()*0.42*Math.PI,r=780;
+    pos.push(Math.cos(th)*Math.cos(ph)*r+60,Math.sin(ph)*r+30,Math.sin(th)*Math.cos(ph)*r+80);
+  }
+  var g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xcfe6ff,size:1.6,sizeAttenuation:false,fog:false,transparent:true,opacity:0.24})));
+
+})();
+
+/* 바다 */
+var waterU=THREE.UniformsUtils.merge([THREE.UniformsLib.fog,{uTime:{value:0},uL:{value:new THREE.Vector3(-120,40,320).normalize()}}]);
+(function(){
+  var geo=new THREE.PlaneGeometry(1600,700,220,96);geo.rotateX(-Math.PI/2);
+  var mat=new THREE.ShaderMaterial({uniforms:waterU,fog:true,
+    vertexShader:[
+      "uniform float uTime;varying vec3 vW;varying vec3 vN;",
+      "#include <fog_pars_vertex>",
+      "float wv(vec2 p,vec2 d,float k,float sp,float a,out vec2 g){float ph=dot(p,d)*k+uTime*sp;g=d*k*a*cos(ph);return a*sin(ph);}",
+      "void main(){",
+      " vec4 wp=modelMatrix*vec4(position,1.0);vec2 p=wp.xz;vec2 g1;vec2 g2;vec2 g3;",
+      " float h=wv(p,normalize(vec2(1.0,0.6)),0.09,0.9,0.38,g1)+wv(p,normalize(vec2(-0.4,1.0)),0.17,1.3,0.2,g2)+wv(p,normalize(vec2(0.8,-0.3)),0.31,1.9,0.09,g3);",
+      " wp.y+=h;vec2 g=g1+g2+g3;vN=normalize(vec3(-g.x,1.0,-g.y));vW=wp.xyz;",
+      " vec4 mvPosition=viewMatrix*wp;gl_Position=projectionMatrix*mvPosition;",
+      " #include <fog_vertex>",
+      "}"].join("\n"),
+    fragmentShader:[
+      "uniform float uTime;uniform vec3 uL;varying vec3 vW;varying vec3 vN;",
+      "#include <fog_pars_fragment>",
+      "void main(){",
+      " vec2 p=vW.xz;",
+      " float dist=length(cameraPosition-vW);",
+      " float detail=1.-smoothstep(35.,150.,dist);",
+      " float shimmer=sin(dot(p,vec2(1.35,.71))+sin(p.y*.57+uTime*.73)+uTime*1.15);",
+      " float crossRipple=cos(dot(p,vec2(-.64,1.76))-uTime*1.23);",
+      " vec3 n=normalize(vN+detail*vec3(shimmer*.033+crossRipple*.018,0.,crossRipple*.032-shimmer*.017));",
+      " vec3 v=normalize(cameraPosition-vW);",
+      " float fr=pow(1.0-max(dot(n,v),0.0),4.5);",
+      " vec3 col=mix(vec3(.036,.089,.126),vec3(.267,.344,.432),fr);",
+      " vec3 hv=normalize(uL+v);float nh=max(dot(n,hv),0.0);",
+      " float broad=pow(nh,30.)*.16;",
+      " float glint=pow(nh,118.)*mix(.21,.45,detail);",
+      " col+=broad*vec3(.48,.59,.70)+glint*vec3(.93,.79,.62);",
+      " col+=detail*(shimmer*.56+crossRipple*.44)*vec3(.008,.013,.018);",
+      " float shoreDistance=max(p.y-79.4,0.);",
+      " float wash=exp(-shoreDistance*.55);",
+      " float foam=smoothstep(.45,.87,.57*sin(p.x*.49+p.y*3.-uTime)+.43*sin(p.x*1.7-p.y*3.9+uTime*.82));",
+      " col=mix(col,vec3(.38,.47,.52),wash*(.09+foam*detail*.24));",
+      " gl_FragColor=vec4(col,1.0);",
+      " #include <fog_fragment>",
+      "}"].join("\n")});
+  var m=new THREE.Mesh(geo,mat);m.position.set(60,-1.25,SHORE+350);scene.add(m);
+})();
+
+/* 물가의 기존 발전소: 모델 */
+var shoreCables=[];
+
+/* 부유식 데이터센터 2기 (일반형 바지) */
+var fdcs=[];
+var fdcSlots=[],dockSlots=[];
+function buildFDC(x,z){
+  var g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
+  var cs=[[-30.5,12],[30.5,12],[-30.5,-12],[30.5,-12]],i;
+  for(i=0;i<4;i++)glow(cs[i][0],3.6,cs[i][1],0xffe9c4,5,g);
+  glow(26,11.2,0,RED,4,g);
+  fdcs.push(g);fdcSlots.push(g);return g;
+}
+loadModel("fdc",function(m){
+  var i;
+  for(i=0;i<fdcSlots.length;i++)fdcSlots[i].add(m.clone(true));
+  for(i=0;i<dockSlots.length;i++){
+    var c=m.clone(true),d=dockSlots[i];
+    c.traverse(function(o){
+      var nm=(o.name||"").replace(/_/g," ");
+      if(d.stage===0&&(nm==="Roof cooling"))o.visible=false;
+      if(d.stage===1&&(nm==="Roof cooling"||nm==="Server hall"||nm==="Service modules"||nm==="Deck fittings"))o.visible=false;
+    });
+    c.rotation.y=Math.PI/2;c.position.set(d.x,4.9,d.z);scene.add(c);
+  }
+});
+(function(){
+  var zs=104,xs=[-30,44],i,j,pile=lam(0x6b7a86),deck=lam(0x33414c);
+  for(i=0;i<2;i++){
+    buildFDC(xs[i],zs);
+    // 연결 잔교
+    box(4.5,0.5,(zs-13)-(SHORE+2),deck,xs[i]+8,1.6,(SHORE+2+zs-13)/2);
+    // 계류 말뚝
+    for(j=0;j<4;j++){
+      var px=xs[i]+(j%2?35.5:-35.5),pz=zs+(j<2?-9:9);
+      dolphinSlots.push([px,-1.2,pz]);
+    }
+    // 육상 전력·통신 케이블
+    box(0.35,0.2,(zs-13)-(SHORE+2),bas(AMBER),xs[i]+6.4,1.95,(SHORE+2+zs-13)/2);
+    box(0.35,0.2,(zs-13)-(SHORE+2),bas(MINT),xs[i]+9.6,1.95,(SHORE+2+zs-13)/2);
+  }
+  // 안벽 위 케이블 간선 (발전소 → 잔교)
+  box(126,0.2,0.35,bas(AMBER),41,0.22,SHORE-3);box(0.35,0.2,13,bas(AMBER),104,0.22,SHORE-9.5);
+  box(74,0.2,0.35,bas(MINT),16.6,0.22,SHORE-5);
+})();
+
+/* 조선소: 도크 + 골리앗 크레인 */
+var trolley;
+(function(){
+  var cx=200,cz=42,i,j;
+  var basin=new THREE.Mesh(new THREE.PlaneGeometry(66,74),lam(0x0a141b));basin.rotation.x=-Math.PI/2;basin.position.set(cx,0.07,cz-1);scene.add(basin);
+  var rim=lam(0x4a5a66);
+  box(2,1.2,74,rim,cx-34,0.6,cz-1);box(2,1.2,74,rim,cx+34,0.6,cz-1);box(70,1.2,2,rim,cx,0.6,cz-38);
+  // 건조 중인 선체 2기 (모델을 단계별로 일부만 보이게)
+  for(i=0;i<2;i++){
+    var hx=cx-15.5+i*31;
+    dockSlots.push({x:hx,z:cz,stage:i});
+    for(j=0;j<7;j++)box(1.6,0.5,20,lam(0x55636e),hx,0.3,cz-27+j*9);
+    for(j=0;j<6;j++)box(0.25,9,0.25,lam(0x8fa1ad),hx-14.2,4.5,cz-28+j*11.2);
+  }
+  var zc=cz-2;
+  glow(cx-41,49,zc,RED,8);glow(cx+41,49,zc,RED,8);
+  // 야드: 공장동·블록·투광등
+  for(i=0;i<9;i++)box(6+Math.random()*6,3+Math.random()*4,6+Math.random()*5,lam(i%2?0x6b5348:0x41525f),cx-70+Math.random()*26,2.5,cz+2+Math.random()*30);
+  var lp=[[cx-36,cz+34],[cx+36,cz+34],[cx-36,cz-36],[cx+36,cz-36],[cx,cz-40]];
+  for(i=0;i<lp.length;i++){box(0.5,26,0.5,lam(0x6b7a86),lp[i][0],13,lp[i][1]);glow(lp[i][0],26.5,lp[i][1],0xffe2ad,8);}
+})();
+
+/* 모델 배치 (원점=바닥 중앙) */
+place("land-datacenter",[[0,0,0],[0,0,-54],[82,0,-54],[-82,0,-58]],function(c,i){
+  if(i)return;
+  // 본관만 재질을 따로 복제해, 카메라가 들어갈 때 벽이 투명해지게 한다
+  c.traverse(function(o){if(o.isMesh){o.material=o.material.clone();o.material.transparent=true;shellMats.push(o.material);}});
+  shell=c;
+});
+
+/* ----- 변수 1: 연료전지 설비 ----- */
+placeOr("fuel-cell-yard",[[-14,0,42]],function(p){
+  var g=new THREE.Group();g.position.set(p[0],p[1],p[2]);scene.add(g);
+  var pad=new THREE.Mesh(new THREE.PlaneGeometry(30,14),lam(0x59656e));pad.rotation.x=-Math.PI/2;pad.position.y=0.08;g.add(pad);
+  var unit=coated(0xc9d2d6,.6,.15),i,j;
+  for(i=0;i<6;i++)for(j=0;j<2;j++){
+    box(4.5,1.2,2.2,unit,-12+i*4.8,0.7,-3.2+j*6.4,g);
+    box(4.52,0.14,2.22,bas(MINT),-12+i*4.8,1.0,-3.2+j*6.4,g);
+  }
+  box(30,0.9,0.1,lam(0x7d8a93),0,0.45,7,g);
+});
+box(0.3,0.12,17,bas(AMBER),-20,0.1,26.5);box(0.3,0.12,17,bas(AMBER),-8,0.1,26.5);
+placeOr("lng-pipe-rack",[[-40,0,42],[-50,0,-112],[-70,0,-112],[-90,0,-112]],function(){});
+
+/* ----- 발단: 주택가 ----- */
+placeOr("house-row",[[-160,0,34],[-160,0,56,Math.PI],[-160,0,-64]],function(p,i){
+  var g=new THREE.Group();g.position.set(p[0],p[1],p[2]);g.rotation.y=p[3]||0;scene.add(g);
+  var cols=[0xd8cbb8,0xb9c4c9,0xcdb9a8,0xc3ccb9,0xd6d0c4],roofs=[0x6a4a40,0x4a5560,0x5c4a3c,0x3f4c55,0x6b5348],k;
+  for(k=0;k<5;k++){
+    var x=-24+k*12;
+    box(8,4.4,8,coated(cols[k],.8,.02),x,2.2,0,g);
+    var roof=new THREE.Mesh(new THREE.ConeGeometry(6.6,3,4),coated(roofs[k],.8,.02));roof.rotation.y=Math.PI/4;roof.position.set(x,5.9,0);g.add(roof);
+    box(1.6,1.3,0.1,bas(0xffd9a0),x-1.6,2.6,4.06,g);box(1.6,1.3,0.1,bas(0xffd9a0),x+1.8,2.6,4.06,g);
+  }
+});
+
+/* ----- 변수 2: 본관 내부 ----- */
+placeOr("data-hall-interior",[[0,0,0]],function(){
+  var floor=new THREE.Mesh(new THREE.PlaneGeometry(30,24),lam(0x6a747c));floor.rotation.x=-Math.PI/2;floor.position.y=0.06;scene.add(floor);
+  var rowsX=[-10.2,-9,-5.4,-4.2,-1.8+0,1.8,4.2,5.4,9,10.2],n=0,i,j;
+  var racks=new THREE.InstancedMesh(new THREE.BoxGeometry(1.2,2.2,0.6),coated(0x2c3640,.6,.3),rowsX.length*34),m4=new THREE.Matrix4();
+  var pos=[],col=[],c=new THREE.Color();
+  for(i=0;i<rowsX.length;i++)for(j=0;j<34;j++){
+    var z=-10.9+j*0.66;
+    m4.makeTranslation(rowsX[i],1.1,z);racks.setMatrixAt(n++,m4);
+    for(var k=0;k<5;k++){
+      pos.push(rowsX[i]+(Math.random()<0.5?-0.62:0.62),0.3+Math.random()*1.8,z-0.25+Math.random()*0.5);
+      var r=Math.random();c.set(r<0.7?0x6fb7ff:r<0.9?0x7dffa8:0xffb23e);col.push(c.r,c.g,c.b);
+    }
+  }
+  racks.instanceMatrix.needsUpdate=true;scene.add(racks);
+  var g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setAttribute("color",new THREE.Float32BufferAttribute(col,3));
+  var pm=new THREE.PointsMaterial({size:0.07,vertexColors:true,transparent:true,depthWrite:false});scene.add(new THREE.Points(g,pm));ledSets.push(pm);
+  for(i=-9;i<=9;i+=3.6)box(0.25,0.06,22,bas(0xdff0ff),i,5.6,0);
+});
+
+/* ----- 변수 2: 꺼내 든 서버 한 대 (3배 확대 전시) ----- */
+placeOr("server-node",[[0,1.35,3.0]],function(p){
+  var g=new THREE.Group();g.position.set(p[0],p[1],p[2]);g.rotation.x=0.95;g.scale.setScalar(2.6);scene.add(g);
+  box(0.48,0.02,0.9,coated(0x14403a,.6,.1),0,0.01,0,g);
+  var i,hb=new THREE.Group();hb.name="HBM";g.add(hb);
+  for(i=0;i<4;i++){box(0.09,0.05,0.2,coated(0x8d99a3,.4,.6),-0.165+i*0.11,0.045,-0.12,g);box(0.09,0.012,0.045,bas(0xffb23e),-0.165+i*0.11,0.03,0.02,hb);}
+  var dr=new THREE.Group();dr.name="DRAM";g.add(dr);
+  for(i=0;i<16;i++)box(0.012,0.035,0.14,coated(0x2f6f66,.5,.2),-0.2+i*0.0265,0.04,0.2,dr);
+  var sd=new THREE.Group();sd.name="SSD";g.add(sd);
+  for(i=0;i<4;i++)box(0.09,0.02,0.07,coated(0x3b4954,.5,.4),-0.165+i*0.11,0.03,0.38,sd);
+  for(i=0;i<6;i++)box(0.06,0.06,0.03,coated(0x10161b,.6,.2),-0.19+i*0.076,0.05,-0.41,g);
+},function(c){c.rotation.x=0.95;c.scale.setScalar(2.6);});
+place("steel-frame",[[82,0,0]]);
+place("tower-crane",[[104,0,25]],function(c){jib=c.getObjectByName("Jib");});
+place("substation",[[-56,0,0]]);
+place("power-plant",[[100,0,58],[-10,0,-112]]);
+box(0.3,0.12,26,bas(AMBER),0,0.1,-85);box(0.3,0.12,26,bas(AMBER),8,0.1,-85);
+place("goliath-crane",[[200,0,40]],function(c){trolley=c.getObjectByName("Trolley");});
+place("shipyard-shop",[[268,0,60],[268,0,26],[268,0,-8]]);
+place("mooring-dolphin",dolphinSlots);
+
+/* ---------- 프레임 ---------- */
+var vA=new THREE.Vector3(),vB=new THREE.Vector3(),vP=new THREE.Vector3(),vT=new THREE.Vector3(),vL=new THREE.Vector3();
+var curP=new THREE.Vector3(),curT=new THREE.Vector3(),first=true,W=1,H=1,portrait=false,activeStep=-1;
+var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+function resize(){
+  W=stage.clientWidth;H=stage.clientHeight;
+  renderer.setSize(W,H,false);
+  portrait=W/H<0.8;
+  camera.aspect=W/H;camera.fov=portrait?66:48;camera.updateProjectionMatrix();
+  layout();
+}
+window.addEventListener("resize",resize);
+window.addEventListener("load",layout);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+
+function frame(now){
+  requestAnimationFrame(frame);
+  var t=now*0.001,sy=window.pageYOffset,i;
+  var s=sample(sy);
+  vA.fromArray(portrait&&s.a.mobile?s.a.mobile:s.a.p);vB.fromArray(portrait&&s.b.mobile?s.b.mobile:s.b.p);vP.lerpVectors(vA,vB,s.u);
+  vA.fromArray(portrait&&s.a.mobileTarget?s.a.mobileTarget:s.a.t);vB.fromArray(portrait&&s.b.mobileTarget?s.b.mobileTarget:s.b.t);vT.lerpVectors(vA,vB,s.u);
+  if(first||reduce){curP.copy(vP);curT.copy(vT);first=false;}
+  else{curP.lerp(vP,0.12);curT.lerp(vT,0.12);}
+  camera.position.copy(curP);
+  // 세로 화면에서는 대상을 조금 위로 올려 캡션과 겹치지 않게
+  camera.lookAt(curT);
+  if(portrait)camera.rotateX(-0.11);
+
+  // 본관 껍질 투명도
+  var dx=Math.max(Math.abs(curP.x)-HALL.w/2,0),dy=Math.max(curP.y-HALL.h,0),dz=Math.max(Math.abs(curP.z)-HALL.d/2,0);
+  var d=Math.sqrt(dx*dx+dy*dy+dz*dz),op=smooth((d-2)/11);
+  for(i=0;i<shellMats.length;i++){shellMats[i].opacity=op;shellMats[i].depthWrite=op>0.95;}
+  shell.visible=op>0.01;
+  scene.fog.near=d<2?35:130;scene.fog.far=d<2?150:580;hemi.intensity=1.38+(1-op)*1.07;
+
+  waterG.visible=op>0.5;
+  for(i=0;i<drops.length;i++)drops[i].c.getPointAt(reduce?drops[i].o:(t*0.11+drops[i].o)%1,drops[i].m.position);
+  for(i=0;i<vapors.length;i++){
+    var vu=reduce?vapors[i].o%1:(t*0.09+vapors[i].o)%1,vs=vapors[i].s;
+    vs.position.set(vapors[i].x+Math.sin(vu*5+i)*1.2+vu*3,13.6+vu*15,vapors[i].z);
+    vs.scale.set(4+vu*9,4+vu*9,1);vs.material.opacity=Math.sin(vu*Math.PI)*0.6*op;
+  }
+  for(i=0;i<loops.length;i++)loops[i].c.getPointAt(reduce?loops[i].o:(t*0.07+loops[i].o)%1,loops[i].m.position);
+  // 움직임
+  if(!reduce){
+    for(i=0;i<fans.length;i++)fans[i].rotation.y=t*5+i;
+    for(i=0;i<pulses.length;i++){var u=(t*0.22+pulses[i].o)%1;pulses[i].c.getPoint(u,pulses[i].m.position);}
+    if(jib)jib.rotation.y=Math.sin(t*0.15)*0.5+0.4;
+  }else{
+    for(i=0;i<pulses.length;i++)pulses[i].c.getPoint(pulses[i].o,pulses[i].m.position);
+  }
+  for(i=0;i<ledSets.length;i++)ledSets[i].opacity=reduce?1:0.45+0.55*Math.abs(Math.sin(t*(1.3+i*0.9)+i*2));
+
+  waterU.uTime.value=reduce?0:t;
+  if(!reduce){
+    for(i=0;i<fdcs.length;i++){fdcs[i].position.y=Math.sin(t*0.6+i*1.7)*0.16;fdcs[i].rotation.x=Math.sin(t*0.45+i*2.1)*0.005;}
+    if(trolley)trolley.position.x=Math.sin(t*0.12)*22;
+  }
+  updateLead(s);
+  renderer.render(scene,camera);
+
+  // 진행 표시
+  var max=document.documentElement.scrollHeight-window.innerHeight;
+  barU.style.width=(max>0?100*sy/max:0)+"%";
+  var near=s.u<0.5?s.a:s.b,cur=near.step,settle=s.a===s.b?1:Math.abs(s.u-0.5)*2;
+  if(cur!==activeStep){
+    activeStep=cur;
+    var on=-1;for(i=0;i<navEls.length;i++)if(navEls[i].step<=cur)on=i;
+    for(i=0;i<navEls.length;i++)navEls[i].el.className=i===on?"on":"";
+    rail.className=cur>0?"on":"";
+  }
+  // 라벨
+  var stNow=CONFIG.steps[cur],dimF=(stNow&&stNow.id==="google"&&!reduce)?0.2+0.8*Math.pow(Math.abs(Math.sin(t*0.55)),2):1;
+  for(i=0;i<shellMats.length;i++)if(shellMats[i].name==="glass")shellMats[i].emissiveIntensity=1.1*dimF;
+  for(i=0;i<labelItems.length;i++){
+    var L=labelItems[i],show=L.step===cur&&settle>0.55&&(L.k===undefined||L.k===near.k);
+    if(show){
+      if(L.node&&!L.found){
+        var ob=scene.getObjectByName(L.node);
+        if(ob){var bx=new THREE.Box3().setFromObject(ob),ctr=bx.getCenter(new THREE.Vector3());L.at=[ctr.x,bx.max.y,ctr.z];L.found=true;}
+      }
+      vL.fromArray(L.at).project(camera);
+      if(vL.z>1||vL.z<-1)show=false;
+      else L.el.style.transform="translate("+((vL.x*0.5+0.5)*W).toFixed(1)+"px,"+((-vL.y*0.5+0.5)*H).toFixed(1)+"px)";
+    }
+    L.el.style.opacity=show?1:0;
+  }
+}
+resize();
+requestAnimationFrame(frame);
+
+// 테스트·임베드용 훅
+window.__vn={config:CONFIG,keys:function(){return keys;}};
+})();
+</script>
+</body>
+</html>
